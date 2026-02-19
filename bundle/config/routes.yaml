@@ -1,0 +1,18 @@
+api_controllers:
+    resource:
+        path: ../src/Api/Controller/
+        namespace: LarsVanDerSangen\ProjectTemplateBundle\Api\Controller
+    type: attribute
+
+user_controllers:
+    resource:
+        path: ../src/User/Controller/
+        namespace: LarsVanDerSangen\ProjectTemplateBundle\User\Controller
+    type: attribute
+
+auth_controllers:
+    resource:
+        path: ../src/Auth/Controller/
+        namespace: LarsVanDerSangen\ProjectTemplateBundle\Auth\Controller
+    type: attribute
+

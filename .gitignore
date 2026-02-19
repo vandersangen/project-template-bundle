@@ -1,0 +1,16 @@
+# Ignore everything by default
+/*
+/*/
+
+# But track the bundle directory
+!/bundle/
+
+# Track important root files
+!/.gitignore
+!/README.md
+
+# Ignore common files in bundle directory
+/bundle/vendor/
+/bundle/composer.lock
+/bundle/.phpunit.result.cache
+

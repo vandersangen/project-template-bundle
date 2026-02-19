@@ -1,0 +1,46 @@
+{
+    "name": "larsvandersangen/project-template-bundle",
+    "type": "symfony-bundle",
+    "description": "Reusable Symfony bundle with authentication, user management, and master data loading",
+    "keywords": ["symfony", "bundle", "authentication", "jwt", "master-data"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Lars van der Sangen",
+            "email": "lars@example.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.5",
+        "ext-ctype": "*",
+        "ext-iconv": "*",
+        "doctrine/doctrine-bundle": "^3.2",
+        "doctrine/doctrine-migrations-bundle": "^4.0",
+        "doctrine/orm": "^3.6",
+        "lexik/jwt-authentication-bundle": "^3.2",
+        "symfony/console": "^7.4",
+        "symfony/framework-bundle": "^7.4",
+        "symfony/mailer": "^7.4",
+        "symfony/security-bundle": "^7.4",
+        "symfony/yaml": "^7.4"
+    },
+    "require-dev": {
+        "doctrine/doctrine-fixtures-bundle": "^4.3",
+        "phpunit/phpunit": "^11.5",
+        "symfony/browser-kit": "^7.4",
+        "symfony/phpunit-bridge": "^7.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "LarsVanDerSangen\\ProjectTemplateBundle\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "LarsVanDerSangen\\ProjectTemplateBundle\\Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
+

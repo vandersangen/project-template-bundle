@@ -10,6 +10,7 @@
 !/.gitattributes
 !/README.md
 !/CONTRIBUTING.md
+!/SETUP_COMPLETE.md
 !/Makefile
 !/docker-compose-dev.yaml
 !/Dockerfile.dev

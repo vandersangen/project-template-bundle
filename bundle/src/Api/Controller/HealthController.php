@@ -67,4 +67,3 @@ class HealthController extends AbstractController
         return $this->json($readinessStatus, $statusCode);
     }
 }
-

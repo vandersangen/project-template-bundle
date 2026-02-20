@@ -119,4 +119,3 @@ class HealthCheckService
         return 'healthy';
     }
 }
-

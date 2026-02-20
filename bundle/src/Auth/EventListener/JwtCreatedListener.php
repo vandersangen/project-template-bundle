@@ -52,4 +52,3 @@ class JwtCreatedListener
         $event->setData($payload);
     }
 }
-

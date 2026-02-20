@@ -16,6 +16,12 @@
 !/Dockerfile.dev
 !/docker/
 !/migrations/
+!/grumphp.yml
+!/phpcs.xml
+!/phpmd.xml
+!/phpunit.xml
+!/rector.php
+!/composer.json
 
 # Ignore common files in bundle directory
 /bundle/vendor/

@@ -96,4 +96,3 @@ class AuthController extends AbstractController
         return $this->json(['message' => 'Password has been reset successfully']);
     }
 }
-

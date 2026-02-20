@@ -123,4 +123,3 @@ class JwtAuthenticator extends AbstractAuthenticator implements AuthenticationEn
         return new JsonResponse($data, Response::HTTP_UNAUTHORIZED);
     }
 }
-

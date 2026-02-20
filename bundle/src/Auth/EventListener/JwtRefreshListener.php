@@ -50,4 +50,3 @@ class JwtRefreshListener
         $response->headers->set('X-Auth-Token', $newToken);
     }
 }
-

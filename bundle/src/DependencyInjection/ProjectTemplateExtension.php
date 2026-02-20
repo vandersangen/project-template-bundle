@@ -51,4 +51,3 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
         ]);
     }
 }
-

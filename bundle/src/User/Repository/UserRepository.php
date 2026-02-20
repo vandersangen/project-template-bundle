@@ -33,4 +33,3 @@ class UserRepository extends ServiceEntityRepository
         return $this->findOneBy(['resetToken' => $token]);
     }
 }
-

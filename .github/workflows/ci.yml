@@ -1,0 +1,93 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    name: Build Docker Images and Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker images
+        run: docker compose -f docker-compose-dev.yaml build
+
+      - name: Start Docker containers
+        run: docker compose -f docker-compose-dev.yaml up -d
+
+      - name: Wait for MySQL to be ready
+        run: |
+          echo "Waiting for MySQL to be ready..."
+          for i in {1..30}; do
+            if docker exec bundle_db mysql -u root -proot -e "SELECT 1" &> /dev/null; then
+              echo "MySQL is ready!"
+              break
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
+
+      - name: Install Composer dependencies
+        run: docker exec bundle_api composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Create JWT keys
+        run: |
+          docker exec bundle_api mkdir -p config/jwt
+          docker exec bundle_api openssl genrsa -out config/jwt/private.pem -aes256 -passout pass:changeme 4096
+          docker exec bundle_api openssl rsa -pubout -in config/jwt/private.pem -out config/jwt/public.pem -passin pass:changeme
+
+      - name: Create database schema
+        run: docker exec bundle_api php bin/console doctrine:schema:create --env=dev
+
+      - name: Load master data
+        run: docker exec bundle_api php bin/console app:master-data:load --env=dev
+
+      - name: Create test database
+        run: |
+          docker exec bundle_db mysql -u root -proot -e "CREATE DATABASE IF NOT EXISTS bundle_db_test_test;"
+          docker exec bundle_db mysql -u root -proot -e "GRANT ALL PRIVILEGES ON bundle_db_test_test.* TO 'bundle_user'@'%'; FLUSH PRIVILEGES;"
+
+      - name: Create test database schema
+        run: docker exec bundle_api php bin/console doctrine:schema:create --env=test
+
+      - name: Load test master data
+        run: docker exec bundle_api php bin/console app:master-data:load --env=test
+
+      - name: Run PHPUnit tests
+        run: docker exec bundle_api php bin/phpunit --testdox
+
+      - name: Run PHPUnit tests with coverage
+        run: docker exec bundle_api php bin/phpunit --coverage-text
+
+      - name: Copy coverage file from container
+        if: success()
+        run: docker cp bundle_api:/var/www/coverage.xml ./coverage.xml || true
+        continue-on-error: true
+
+      - name: Upload coverage to Codecov (optional)
+        if: success()
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+        continue-on-error: true
+
+      - name: Show test results
+        if: always()
+        run: |
+          echo "=== Test Results ==="
+          docker exec bundle_api php bin/phpunit --testdox || true
+
+      - name: Stop Docker containers
+        if: always()
+        run: docker compose -f docker-compose-dev.yaml down -v
+

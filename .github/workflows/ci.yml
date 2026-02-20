@@ -18,71 +18,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker images
-        run: docker compose -f docker-compose-dev.yaml build
+      - name: Setup CI environment
+        run: make ci-setup
 
-      - name: Start Docker containers
-        run: docker compose -f docker-compose-dev.yaml up -d
+      - name: Run tests
+        run: make ci-test
 
-      - name: Wait for containers to be ready
-        run: |
-          echo "Waiting for containers to start..."
-          sleep 10
-
-          echo "Waiting for MySQL to be ready..."
-          for i in {1..60}; do
-            if docker exec bundle_db mysql -u root -proot -e "SELECT 1" &> /dev/null; then
-              echo "MySQL is ready!"
-              break
-            fi
-            echo "Waiting for MySQL... ($i/60)"
-            sleep 3
-          done
-
-          echo "Checking PHP container..."
-          docker exec bundle_api php -v
-
-          echo "Checking PHP extensions..."
-          docker exec bundle_api php -m | grep -E "(pdo_mysql|mysqli)"
-
-      - name: Install Composer dependencies
-        run: docker exec bundle_api composer install --no-interaction --prefer-dist --optimize-autoloader
-
-      - name: Create JWT keys
-        run: |
-          docker exec bundle_api mkdir -p config/jwt
-          docker exec bundle_api openssl genrsa -out config/jwt/private.pem -aes256 -passout pass:changeme 4096
-          docker exec bundle_api openssl rsa -pubout -in config/jwt/private.pem -out config/jwt/public.pem -passin pass:changeme
-
-      - name: Verify database connection
-        run: |
-          echo "Testing database connection..."
-          docker exec bundle_api php bin/console dbal:run-sql "SELECT 1" --env=dev || echo "Database not ready yet, will retry..."
-          sleep 5
-          docker exec bundle_api php bin/console dbal:run-sql "SELECT 1" --env=dev
-
-      - name: Create database schema
-        run: docker exec bundle_api php bin/console doctrine:schema:create --env=dev
-
-      - name: Load master data
-        run: docker exec bundle_api php bin/console app:master-data:load --env=dev
-
-      - name: Create test database
-        run: |
-          docker exec bundle_db mysql -u root -proot -e "CREATE DATABASE IF NOT EXISTS bundle_db_test_test;"
-          docker exec bundle_db mysql -u root -proot -e "GRANT ALL PRIVILEGES ON bundle_db_test_test.* TO 'bundle_user'@'%'; FLUSH PRIVILEGES;"
-
-      - name: Create test database schema
-        run: docker exec bundle_api php bin/console doctrine:schema:create --env=test
-
-      - name: Load test master data
-        run: docker exec bundle_api php bin/console app:master-data:load --env=test
-
-      - name: Run PHPUnit tests
-        run: docker exec bundle_api php bin/phpunit --testdox
-
-      - name: Run PHPUnit tests with coverage
-        run: docker exec bundle_api php bin/phpunit --coverage-text
+      - name: Generate code coverage
+        run: make ci-test-coverage
 
       - name: Copy coverage file from container
         if: success()
@@ -99,23 +42,30 @@ jobs:
 
       - name: Show test results
         if: always()
-        run: |
-          echo "=== Test Results ==="
-          docker exec bundle_api php bin/phpunit --testdox || true
+        run: make ci-test || true
 
       - name: Show logs on failure
         if: failure()
         run: |
-          echo "=== Docker Logs ==="
-          docker compose -f docker-compose-dev.yaml logs
+          echo "=== Docker Container Status ==="
+          docker compose -f docker-compose-dev.yaml ps
 
-          echo "=== PHP Info ==="
-          docker exec bundle_api php -i | grep -E "(pdo_mysql|mysqli)" || true
+          echo "=== PHP Extensions ==="
+          docker exec bundle_api php -m || true
 
-          echo "=== Environment ==="
+          echo "=== PHP Info (PDO section) ==="
+          docker exec bundle_api php -i | grep -A 10 -i pdo || true
+
+          echo "=== Environment Variables ==="
           docker exec bundle_api env | grep -E "(DATABASE|APP_ENV)" || true
 
-      - name: Stop Docker containers
+          echo "=== Docker Logs (last 100 lines) ==="
+          docker compose -f docker-compose-dev.yaml logs --tail=100
+
+          echo "=== Symfony .env file ==="
+          docker exec bundle_api cat .env | grep DATABASE || true
+
+      - name: Cleanup
         if: always()
-        run: docker compose -f docker-compose-dev.yaml down -v
+        run: make ci-cleanup
 

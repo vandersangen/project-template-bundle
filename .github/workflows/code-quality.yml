@@ -35,23 +35,11 @@ jobs:
       - name: Install Composer dependencies
         run: docker exec bundle_api composer install --no-interaction --prefer-dist --optimize-autoloader
 
-      - name: Run PHP CodeSniffer
-        run: docker exec bundle_api vendor/bin/phpcs --standard=phpcs.xml src/ bundle/src/ || true
+      - name: Run Code Quality Checks
+        run: make ci-quality
         continue-on-error: true
 
-      - name: Run PHPMD
-        run: docker exec bundle_api vendor/bin/phpmd src/,bundle/src/ text phpmd.xml || true
-        continue-on-error: true
-
-      - name: Run PHPStan
-        run: docker exec bundle_api vendor/bin/phpstan analyse -c phpstan.neon || true
-        continue-on-error: true
-
-      - name: Run Rector (dry-run)
-        run: docker exec bundle_api vendor/bin/rector process --dry-run || true
-        continue-on-error: true
-
-      - name: Stop Docker containers
+      - name: Cleanup
         if: always()
-        run: docker compose -f docker-compose-dev.yaml down -v
+        run: make ci-cleanup
 

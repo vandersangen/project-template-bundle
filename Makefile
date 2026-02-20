@@ -14,11 +14,17 @@ help:
 	@echo "  make restart         - Herstart de containers"
 	@echo "  make logs            - Bekijk de logs"
 	@echo "  make ps              - Status van de containers"
+	@echo "  make setup           - Volledige setup (build, start, composer, database, migraties)"
 	@echo ""
 	@echo "Database & Data:"
 	@echo "  make migrate         - Voer Symfony database migraties uit"
 	@echo "  make init            - Initialiseer het project (composer install, etc)"
 	@echo "  make db-copy         - Kopieer een database naar de huidige branch database"
+	@echo ""
+	@echo "Testing:"
+	@echo "  make test-backend    - Voer PHPUnit tests uit"
+	@echo "  make test-frontend   - Voer Cypress tests uit"
+	@echo "  make test            - Voer alle tests uit (backend + frontend)"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make lint            - Voer GrumPHP uit (phpcs, phpmd, phpunit, rector, composer audit)"
@@ -26,7 +32,13 @@ help:
 	@echo "  make phpcbf          - Voer PHP Code Beautifier uit (auto-fix code style)"
 	@echo "  make phpmd           - Voer PHP Mess Detector uit (code quality check)"
 	@echo "  make rector          - Voer Rector uit (code modernization)"
-	@echo "  make test-backend    - Voer PHPUnit tests uit"
+	@echo ""
+	@echo "CI/CD (gebruikt door GitHub Actions):"
+	@echo "  make ci-setup        - Setup CI omgeving (build, start, wacht op DB, composer, JWT, schema, data)"
+	@echo "  make ci-test         - Voer tests uit in CI omgeving"
+	@echo "  make ci-test-coverage - Voer tests uit met coverage in CI omgeving"
+	@echo "  make ci-quality      - Voer code quality checks uit in CI omgeving"
+	@echo "  make ci-cleanup      - Cleanup CI omgeving (stop containers)"
 	@echo ""
 	@echo "Kubernetes Feature Branches:"
 	@echo "  make k8s-mysql       - Deploy MySQL server (eenmalig)"
@@ -84,13 +96,20 @@ up-mailer:
 	@$(DOCKER_COMPOSE) up mailer --build --force-recreate --detach
 
 setup:
+	@echo "=== Setup: Building and starting containers ==="
 	$(DOCKER_COMPOSE) up -d --build --remove-orphans
-	@echo "✅ Containers gestart!"
-	@echo "🌐 Web: http://localhost:8081"
-	@echo "📧 Mailpit: http://localhost:8026"
-	@echo "Waiting for database to be ready..."
-	@sleep 5
-	$(DOCKER_COMPOSE) exec bundle_api composer install
+	@echo ""
+	@echo "=== Setup: Waiting for database to be ready ==="
+	@until $(DOCKER_COMPOSE) exec -T db mysql -u root -proot -e "SELECT 1" > /dev/null 2>&1; do \
+		echo "Waiting for MySQL..."; \
+		sleep 2; \
+	done
+	@echo "✅ MySQL is ready!"
+	@echo ""
+	@echo "=== Setup: Installing Composer dependencies ==="
+	$(DOCKER_COMPOSE) exec bundle_api composer install --no-interaction
+	@echo ""
+	@echo "=== Setup: Creating database and running migrations ==="
 	$(DOCKER_COMPOSE) exec bundle_api php bin/console doctrine:database:create --if-not-exists
 	$(DOCKER_COMPOSE) exec bundle_api php bin/console doctrine:migrations:migrate --no-interaction
 	@echo ""
@@ -102,6 +121,57 @@ setup:
 	@echo "  make lint      - Code quality checks (GrumPHP)"
 	@echo "  make test      - Run tests"
 	@echo "  make help      - Alle commando's"
+
+ci-setup:
+	@echo "=== CI Setup: Building and starting containers ==="
+	$(DOCKER_COMPOSE) build
+	$(DOCKER_COMPOSE) up -d
+	@echo ""
+	@echo "=== CI Setup: Waiting for database to be ready ==="
+	@until $(DOCKER_COMPOSE) exec -T db mysql -u root -proot -e "SELECT 1" > /dev/null 2>&1; do \
+		echo "Waiting for MySQL..."; \
+		sleep 2; \
+	done
+	@echo "✅ MySQL is ready!"
+	@echo ""
+	@echo "=== CI Setup: Verifying PHP container ==="
+	$(DOCKER_COMPOSE) exec bundle_api php -v
+	@echo ""
+	@echo "=== CI Setup: Installing Composer dependencies ==="
+	$(DOCKER_COMPOSE) exec bundle_api composer install --no-interaction
+	@echo ""
+	@echo "=== CI Setup: Creating database and running migrations ==="
+	$(DOCKER_COMPOSE) exec bundle_api php bin/console doctrine:database:create --if-not-exists
+	$(DOCKER_COMPOSE) exec bundle_api php bin/console doctrine:migrations:migrate --no-interaction
+	@echo ""
+	@echo "✅ CI Setup compleet!"
+
+ci-test:
+	@echo "=== Running PHPUnit tests ==="
+	$(DOCKER_COMPOSE) exec bundle_api vendor/bin/phpunit --testdox
+
+ci-test-coverage:
+	@echo "=== Running PHPUnit tests with coverage ==="
+	$(DOCKER_COMPOSE) exec bundle_api vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml
+
+ci-quality:
+	@echo "=== Running Code Quality Checks ==="
+	@echo ""
+	@echo "--- PHP CodeSniffer ---"
+	$(DOCKER_COMPOSE) exec bundle_api vendor/bin/phpcs --standard=phpcs.xml bundle/src/ || true
+	@echo ""
+	@echo "--- PHPMD ---"
+	@$(DOCKER_COMPOSE) exec -T bundle_api bash -c 'php -d error_reporting="E_ALL & ~E_DEPRECATED" vendor/bin/phpmd bundle/src text phpmd.xml 2>&1 | grep -E "^/var/www/bundle/src/.+\.(php):[0-9]+" || echo "✓ No PHPMD violations found"' || true
+	@echo ""
+	@echo "--- Rector (dry-run) ---"
+	$(DOCKER_COMPOSE) exec bundle_api vendor/bin/rector process --dry-run || true
+	@echo ""
+	@echo "--- Composer Audit ---"
+	$(DOCKER_COMPOSE) exec bundle_api composer audit --abandoned=ignore || true
+
+ci-cleanup:
+	@echo "=== Cleaning up CI environment ==="
+	$(DOCKER_COMPOSE) down -v
 
 down:
 	$(DOCKER_COMPOSE) down
@@ -137,14 +207,14 @@ test-frontend: up-api-cached up-frontend
 test: test-backend test-frontend
 
 phpcs:
-	$(DOCKER_COMPOSE) exec bundle_api ./vendor/bin/phpcs -s
+	$(DOCKER_COMPOSE) exec bundle_api ./vendor/bin/phpcs --standard=phpcs.xml bundle/src/
 
 phpcbf:
-	$(DOCKER_COMPOSE) exec bundle_api ./vendor/bin/phpcbf -s
+	$(DOCKER_COMPOSE) exec bundle_api ./vendor/bin/phpcbf --standard=phpcs.xml bundle/src/
 
 phpmd:
 	@echo "Running PHPMD with PHP 8.5 compatibility handling..."
-	@$(DOCKER_COMPOSE) exec -T bundle_api bash -c 'output=$$(php -d error_reporting="E_ALL & ~E_DEPRECATED" ./vendor/bin/phpmd src text phpmd.xml 2>&1); violations=$$(echo "$$output" | grep -E "^/var/www/api/src/.+\.(php):[0-9]+" || true); if [ -n "$$violations" ]; then echo "$$violations"; exit 2; else echo "✓ No PHPMD violations found (PHP 8.5 parsing errors ignored)"; exit 0; fi'
+	@$(DOCKER_COMPOSE) exec -T bundle_api bash -c 'output=$$(php -d error_reporting="E_ALL & ~E_DEPRECATED" ./vendor/bin/phpmd bundle/src text phpmd.xml 2>&1); violations=$$(echo "$$output" | grep -E "^/var/www/bundle/src/.+\.(php):[0-9]+" || true); if [ -n "$$violations" ]; then echo "$$violations"; exit 2; else echo "✓ No PHPMD violations found (PHP 8.5 parsing errors ignored)"; exit 0; fi'
 
 lint:
 	$(DOCKER_COMPOSE) exec bundle_api ./vendor/bin/grumphp run

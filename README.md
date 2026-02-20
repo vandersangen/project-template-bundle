@@ -1,6 +1,11 @@
 # Project Template Bundle - Development Environment
 
+![CI Pipeline](https://github.com/USERNAME/REPOSITORY/workflows/CI%20Pipeline/badge.svg)
+![Code Quality](https://github.com/USERNAME/REPOSITORY/workflows/Code%20Quality/badge.svg)
+
 Dit is een standalone Symfony applicatie voor het ontwikkelen en testen van de `project-template-bundle`.
+
+> **Note:** Vervang `USERNAME/REPOSITORY` in de badges hierboven met je GitHub gebruikersnaam en repository naam.
 
 ## 📁 Structuur
 
@@ -166,6 +171,27 @@ make test
 # Of handmatig:
 docker exec bundle_api php bin/phpunit
 ```
+
+## 🔄 CI/CD Pipeline
+
+Deze repository heeft geautomatiseerde GitHub Actions workflows die bij elke push en pull request worden uitgevoerd:
+
+### CI Pipeline
+- ✅ Build Docker images (PHP 8.5, MySQL 8.0, Nginx)
+- ✅ Installeer dependencies
+- ✅ Genereer JWT keys
+- ✅ Maak databases aan (dev + test)
+- ✅ Laad master data
+- ✅ Voer alle tests uit (35 tests, 96 assertions)
+- ✅ Genereer code coverage rapport
+
+### Code Quality
+- ✅ PHP CodeSniffer (PSR-12 coding standards)
+- ✅ PHPMD (PHP Mess Detector)
+- ✅ PHPStan (static analysis)
+- ✅ Rector (code modernization checks)
+
+**Zie `.github/workflows/README.md` voor meer details.**
 
 ## 📝 Notities
 

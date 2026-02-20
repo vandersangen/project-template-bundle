@@ -23,6 +23,7 @@
 !/phpunit.xml
 !/rector.php
 !/composer.json
+!/.env
 
 # Ignore common files in bundle directory
 /bundle/vendor/

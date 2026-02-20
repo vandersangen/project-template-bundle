@@ -24,6 +24,14 @@ jobs:
       - name: Start Docker containers
         run: docker compose -f docker-compose-dev.yaml up -d
 
+      - name: Wait for containers to be ready
+        run: |
+          echo "Waiting for containers to start..."
+          sleep 10
+
+          echo "Checking PHP container..."
+          docker exec bundle_api php -v
+
       - name: Install Composer dependencies
         run: docker exec bundle_api composer install --no-interaction --prefer-dist --optimize-autoloader
 

@@ -24,17 +24,26 @@ jobs:
       - name: Start Docker containers
         run: docker compose -f docker-compose-dev.yaml up -d
 
-      - name: Wait for MySQL to be ready
+      - name: Wait for containers to be ready
         run: |
+          echo "Waiting for containers to start..."
+          sleep 10
+
           echo "Waiting for MySQL to be ready..."
-          for i in {1..30}; do
+          for i in {1..60}; do
             if docker exec bundle_db mysql -u root -proot -e "SELECT 1" &> /dev/null; then
               echo "MySQL is ready!"
               break
             fi
-            echo "Waiting for MySQL... ($i/30)"
-            sleep 2
+            echo "Waiting for MySQL... ($i/60)"
+            sleep 3
           done
+
+          echo "Checking PHP container..."
+          docker exec bundle_api php -v
+
+          echo "Checking PHP extensions..."
+          docker exec bundle_api php -m | grep -E "(pdo_mysql|mysqli)"
 
       - name: Install Composer dependencies
         run: docker exec bundle_api composer install --no-interaction --prefer-dist --optimize-autoloader
@@ -44,6 +53,13 @@ jobs:
           docker exec bundle_api mkdir -p config/jwt
           docker exec bundle_api openssl genrsa -out config/jwt/private.pem -aes256 -passout pass:changeme 4096
           docker exec bundle_api openssl rsa -pubout -in config/jwt/private.pem -out config/jwt/public.pem -passin pass:changeme
+
+      - name: Verify database connection
+        run: |
+          echo "Testing database connection..."
+          docker exec bundle_api php bin/console dbal:run-sql "SELECT 1" --env=dev || echo "Database not ready yet, will retry..."
+          sleep 5
+          docker exec bundle_api php bin/console dbal:run-sql "SELECT 1" --env=dev
 
       - name: Create database schema
         run: docker exec bundle_api php bin/console doctrine:schema:create --env=dev
@@ -86,6 +102,18 @@ jobs:
         run: |
           echo "=== Test Results ==="
           docker exec bundle_api php bin/phpunit --testdox || true
+
+      - name: Show logs on failure
+        if: failure()
+        run: |
+          echo "=== Docker Logs ==="
+          docker compose -f docker-compose-dev.yaml logs
+
+          echo "=== PHP Info ==="
+          docker exec bundle_api php -i | grep -E "(pdo_mysql|mysqli)" || true
+
+          echo "=== Environment ==="
+          docker exec bundle_api env | grep -E "(DATABASE|APP_ENV)" || true
 
       - name: Stop Docker containers
         if: always()

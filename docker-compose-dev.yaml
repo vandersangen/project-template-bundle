@@ -23,8 +23,6 @@ services:
       - ./:/var/www/
     depends_on:
       - db
-    env_file:
-      - .env
 
   # Nginx for the Bundle API
   bundle_nginx:

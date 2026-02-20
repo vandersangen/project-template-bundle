@@ -13,12 +13,16 @@ RUN set -eux; \
     apt clean; \
     rm -rf /var/lib/apt/lists/*
 
-# Install Xdebug
+# Install Xdebug for debugging
 RUN pecl install xdebug \
     && docker-php-ext-enable xdebug
 
-# Create initial xdebug config (disabled by default)
+# Create initial xdebug config (disabled by default for performance)
 RUN echo ";zend_extension=xdebug.so" > /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+
+# Install PCOV for fast code coverage
+RUN pecl install pcov \
+    && docker-php-ext-enable pcov
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

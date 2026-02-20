@@ -4,12 +4,17 @@
     "description": "Reusable Symfony bundle with authentication, user management, and master data loading",
     "keywords": ["symfony", "bundle", "authentication", "jwt", "master-data"],
     "license": "MIT",
+    "homepage": "https://github.com/larsvandersangen/project-template-bundle",
     "authors": [
         {
             "name": "Lars van der Sangen",
             "email": "lars@example.com"
         }
     ],
+    "support": {
+        "issues": "https://github.com/larsvandersangen/project-template-bundle/issues",
+        "source": "https://github.com/larsvandersangen/project-template-bundle"
+    },
     "require": {
         "php": ">=8.5",
         "ext-ctype": "*",

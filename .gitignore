@@ -15,6 +15,7 @@
 !/docker-compose-dev.yaml
 !/Dockerfile.dev
 !/docker/
+!/migrations/
 
 # Ignore common files in bundle directory
 /bundle/vendor/

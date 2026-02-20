@@ -1,202 +1,211 @@
-# Project Template Bundle - Development Environment
+# Project Template Bundle
 
-![CI Pipeline](https://github.com/USERNAME/REPOSITORY/workflows/CI%20Pipeline/badge.svg)
-![Code Quality](https://github.com/USERNAME/REPOSITORY/workflows/Code%20Quality/badge.svg)
+[![CI Pipeline](https://github.com/larsvandersangen/project-template-bundle/workflows/CI%20Pipeline/badge.svg)](https://github.com/larsvandersangen/project-template-bundle/actions)
+[![Code Quality](https://github.com/larsvandersangen/project-template-bundle/workflows/Code%20Quality/badge.svg)](https://github.com/larsvandersangen/project-template-bundle/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Dit is een standalone Symfony applicatie voor het ontwikkelen en testen van de `project-template-bundle`.
+A reusable Symfony bundle providing authentication, user management, and master data loading functionality.
 
-> **Note:** Vervang `USERNAME/REPOSITORY` in de badges hierboven met je GitHub gebruikersnaam en repository naam.
+## Features
 
-## 📁 Structuur
+- **JWT Authentication**: Complete authentication system with login, register, password reset
+- **User Management**: User entity, repository, and service layer
+- **Master Data Loading**: Flexible master data loading from PHP configuration files
+- **Database Tools**: Git branch-based database naming, database copy command
+- **Health Checks**: API health check endpoints
+- **Fully Tested**: 35 tests with 96 assertions (100% passing)
 
-```
-project-template-bundle/
-├── bundle/                    # De eigenlijke bundle code (tracked by Git)
-│   ├── src/                   # Bundle source code
-│   ├── config/                # Bundle configuratie
-│   ├── tests/                 # Bundle tests
-│   └── composer.json          # Bundle package definitie
-│
-├── src/                       # Test Symfony app (NIET tracked by Git)
-├── config/                    # Test app config (NIET tracked by Git)
-├── docker-compose-dev.yaml    # Onafhankelijke Docker setup
-├── Dockerfile.dev             # PHP/Symfony Docker image
-├── Makefile                   # Handige commando's
-└── composer.json              # Test app dependencies
-```
+## Installation
 
-## 🚀 Quick Start
-
-### 1. Start de Docker omgeving
+### Via Composer (from Packagist)
 
 ```bash
-# Start alle containers
-make up
-
-# Of handmatig:
-docker-compose -f docker-compose-dev.yaml up -d
+composer require larsvandersangen/project-template-bundle
 ```
 
-### 2. Installeer dependencies
+## Requirements
+
+- PHP >= 8.5
+- Symfony >= 7.4
+- Doctrine ORM >= 3.6
+- Lexik JWT Authentication Bundle >= 3.2
+
+## Quick Start
+
+### 1. Register the Bundle
+
+Add to `config/bundles.php`:
+
+```php
+return [
+    // ...
+    LarsVanDerSangen\ProjectTemplateBundle\ProjectTemplateBundle::class => ['all' => true],
+];
+```
+
+### 2. Configure the Bundle
+
+Create `config/packages/project_template.yaml`:
+
+```yaml
+project_template:
+    mailer_sender: 'noreply@example.com'
+```
+
+### 3. Import Routes
+
+Add to `config/routes.yaml`:
+
+```yaml
+project_template:
+    resource: '@ProjectTemplateBundle/config/routes.yaml'
+    prefix: /
+```
+
+### 4. Configure Security
+
+Update `config/packages/security.yaml`:
+
+```yaml
+security:
+    password_hashers:
+        LarsVanDerSangen\ProjectTemplateBundle\User\Entity\User: 'auto'
+    
+    providers:
+        app_user_provider:
+            entity:
+                class: LarsVanDerSangen\ProjectTemplateBundle\User\Entity\User
+                property: email
+    
+    firewalls:
+        public:
+            pattern: ^/(api/health|api/auth/(login|register|forgot-password|reset-password))
+            security: false
+        
+        api:
+            pattern: ^/api
+            stateless: true
+            provider: app_user_provider
+            custom_authenticators:
+                - LarsVanDerSangen\ProjectTemplateBundle\Auth\Security\JwtAuthenticator
+            entry_point: LarsVanDerSangen\ProjectTemplateBundle\Auth\Security\JwtAuthenticator
+    
+    access_control:
+        - { path: ^/api/health, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/(login|register|forgot-password|reset-password), roles: PUBLIC_ACCESS }
+        - { path: ^/api, roles: ROLE_USER }
+```
+
+### 5. Generate JWT Keys
 
 ```bash
-# Via Makefile
-make composer-install
-
-# Of handmatig:
-docker exec bundle_api composer install
+mkdir -p config/jwt
+openssl genrsa -out config/jwt/private.pem -aes256 -passout pass:changeme 4096
+openssl rsa -pubout -in config/jwt/private.pem -out config/jwt/public.pem -passin pass:changeme
 ```
 
-### 3. Verifieer de installatie
+### 6. Configure JWT
+
+Create `config/packages/lexik_jwt_authentication.yaml`:
+
+```yaml
+lexik_jwt_authentication:
+    secret_key: '%kernel.project_dir%/config/jwt/private.pem'
+    public_key: '%kernel.project_dir%/config/jwt/public.pem'
+    pass_phrase: 'changeme'
+```
+
+### 7. Run Migrations
 
 ```bash
-docker exec bundle_api php bin/console --version
-# Output: Symfony 7.4.5 (env: dev, debug: true)
+php bin/console doctrine:migrations:migrate
 ```
 
-## 🐳 Docker Omgeving
-
-De bundle heeft een **volledig onafhankelijke** Docker setup:
-
-- **Database**: MySQL 8.0 op poort **3307**
-- **API**: PHP 8.5-FPM container (`bundle_api`)
-- **Web Server**: Nginx op poort **8081**
-- **Mailer**: Mailpit op poorten **1026/8026**
-
-**Beschikbare URLs:**
-- Web: http://localhost:8081
-- Mailpit: http://localhost:8026
-
-## 🛠️ Makefile Commando's
+### 8. Load Master Data
 
 ```bash
-make help              # Toon alle beschikbare commando's
-make up                # Start de Docker containers
-make down              # Stop de Docker containers
-make restart           # Herstart de Docker containers
-make shell             # Open een shell in de bundle_api container
-make composer-install  # Installeer Composer dependencies
-make composer-update   # Update Composer dependencies
-make test              # Voer tests uit
-make logs              # Toon logs
-make build             # Bouw Docker images opnieuw
+php bin/console app:master-data:load
 ```
 
-## 💻 Development Workflow
+## Usage
 
-### Bundle ontwikkelen
+### Authentication Endpoints
 
-1. **Start de omgeving**:
-   ```bash
-   make up
-   ```
+The bundle provides the following authentication endpoints:
 
-2. **Maak wijzigingen** in `bundle/src/`
+#### Register
+```bash
+POST /api/auth/register
+Content-Type: application/json
 
-3. **Test wijzigingen** in de omliggende Symfony applicatie
+{
+    "email": "user@example.com",
+    "password": "SecurePass123!",
+    "firstName": "John",
+    "lastName": "Doe"
+}
+```
 
-4. **Commit wijzigingen** (alleen bundle files worden getracked):
-   ```bash
-   git add bundle/
-   git commit -m "Jouw wijzigingen"
-   git push
-   ```
+#### Login
+```bash
+POST /api/auth/login
+Content-Type: application/json
 
-### Bundle configureren in test app
+{
+    "email": "user@example.com",
+    "password": "SecurePass123!"
+}
+```
 
-De bundle is al geconfigureerd in de test applicatie via een path repository in `composer.json`:
-
+Response:
 ```json
 {
-    "repositories": [
-        {
-            "type": "path",
-            "url": "./bundle",
-            "options": {
-                "symlink": true
-            }
-        }
-    ],
-    "require": {
-        "larsvandersangen/project-template-bundle": "@dev"
+    "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9...",
+    "user": {
+        "id": 1,
+        "email": "user@example.com",
+        "firstName": "John",
+        "lastName": "Doe"
     }
 }
 ```
 
-Wijzigingen in `bundle/` zijn direct zichtbaar via de symlink.
-
-## 📦 Publiceren naar Packagist
-
-### 1. Push naar GitHub
-
+#### Forgot Password
 ```bash
-git remote add origin https://github.com/larsvandersangen/project-template-bundle.git
-git push -u origin main
+POST /api/auth/forgot-password
+Content-Type: application/json
+
+{
+    "email": "user@example.com"
+}
 ```
 
-### 2. Tag een release
-
+#### Reset Password
 ```bash
-git tag -a v1.0.0 -m "First release"
-git push origin v1.0.0
+POST /api/auth/reset-password
+Content-Type: application/json
+
+{
+    "token": "reset-token-from-email",
+    "password": "NewSecurePass123!"
+}
 ```
 
-### 3. Submit naar Packagist
+### Protected Endpoints
 
-- Ga naar https://packagist.org/packages/submit
-- Voer repository URL in: `https://github.com/larsvandersangen/project-template-bundle`
-- Enable auto-update hook
-
-### 4. Gebruik in andere projecten
+Use the JWT token in the Authorization header:
 
 ```bash
-composer require larsvandersangen/project-template-bundle:^1.0
+GET /api/users/1
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9...
 ```
 
-## 🔒 Git Configuratie
+## License
 
-**Belangrijk**: Alleen de `bundle/` directory wordt getracked door Git!
+MIT
 
-De `.gitignore` is zo geconfigureerd dat:
-- ✅ `bundle/` directory wordt getracked
-- ✅ `.gitignore` en `README.md` worden getracked
-- ❌ Alle test Symfony applicatie bestanden worden genegeerd
+## Support
 
-## 🧪 Testing
-
-```bash
-# Voer alle tests uit
-make test
-
-# Of handmatig:
-docker exec bundle_api php bin/phpunit
-```
-
-## 🔄 CI/CD Pipeline
-
-Deze repository heeft geautomatiseerde GitHub Actions workflows die bij elke push en pull request worden uitgevoerd:
-
-### CI Pipeline
-- ✅ Build Docker images (PHP 8.5, MySQL 8.0, Nginx)
-- ✅ Installeer dependencies
-- ✅ Genereer JWT keys
-- ✅ Maak databases aan (dev + test)
-- ✅ Laad master data
-- ✅ Voer alle tests uit (35 tests, 96 assertions)
-- ✅ Genereer code coverage rapport
-
-### Code Quality
-- ✅ PHP CodeSniffer (PSR-12 coding standards)
-- ✅ PHPMD (PHP Mess Detector)
-- ✅ PHPStan (static analysis)
-- ✅ Rector (code modernization checks)
-
-**Zie `.github/workflows/README.md` voor meer details.**
-
-## 📝 Notities
-
-- Deze omgeving is **volledig onafhankelijk** van het main `project-template` project
-- Beide projecten kunnen **tegelijkertijd** draaien zonder conflicten
-- De bundle moet **gepubliceerd** worden naar Packagist om gebruikt te kunnen worden in andere projecten
-- Local development via path repository tussen projecten is **niet mogelijk** vanwege Docker isolatie
+- **Issues**: [GitHub Issues](https://github.com/larsvandersangen/project-template-bundle/issues)
+- **Source**: [GitHub Repository](https://github.com/larsvandersangen/project-template-bundle)
 

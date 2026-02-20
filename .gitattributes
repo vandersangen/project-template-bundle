@@ -1,11 +1,15 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
-# Exclude files from export (git archive)
+# Exclude development files from export (git archive / Packagist)
 /.gitattributes export-ignore
 /.gitignore export-ignore
+/.github export-ignore
 /CONTRIBUTING.md export-ignore
-/README.md export-ignore
+/DEVELOPMENT.md export-ignore
+/BUNDLE_SETUP.md export-ignore
+/SETUP_COMPLETE.md export-ignore
+/PACKAGIST_SETUP.md export-ignore
 /Makefile export-ignore
 /docker-compose-dev.yaml export-ignore
 /Dockerfile.dev export-ignore
@@ -18,11 +22,19 @@
 /vendor export-ignore
 /bin export-ignore
 /migrations export-ignore
-/composer.json export-ignore
-/composer.lock export-ignore
 /symfony.lock export-ignore
 /.env export-ignore
+/.env.test export-ignore
 /phpunit.dist.xml export-ignore
+/phpunit.xml export-ignore
+/phpstan.neon export-ignore
+/phpcs.xml export-ignore
+/phpmd.xml export-ignore
+/rector.php export-ignore
+/grumphp.yml export-ignore
 /compose.yaml export-ignore
 /compose.override.yaml export-ignore
+
+# Bundle test files can be excluded from distribution
+/bundle/tests export-ignore
 

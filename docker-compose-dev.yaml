@@ -1,0 +1,51 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: bundle_db
+    restart: always
+    environment:
+      MYSQL_DATABASE: bundle_db
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: bundle_user
+      MYSQL_PASSWORD: bundle_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - bundle_db_data:/var/lib/mysql
+
+  bundle_api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: bundle_api
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www/
+    depends_on:
+      - db
+
+  # Nginx for the Bundle API
+  bundle_nginx:
+    image: nginx:alpine
+    container_name: bundle_nginx
+    ports:
+      - "8081:80"
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx:/etc/nginx/conf.d
+    depends_on:
+      - bundle_api
+
+  mailer:
+    image: axllent/mailpit
+    container_name: bundle_mailer
+    ports:
+      - "1026:1025"
+      - "8026:8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+volumes:
+  bundle_db_data:
+

@@ -64,6 +64,7 @@ ci-setup:
 	$(DOCKER_COMPOSE) exec -T php php bin/console doctrine:migrations:migrate --no-interaction
 	$(DOCKER_COMPOSE) exec -T php php bin/console doctrine:database:create --if-not-exists --env=test
 	$(DOCKER_COMPOSE) exec -T php php bin/console doctrine:migrations:migrate --no-interaction --env=test
+	$(DOCKER_COMPOSE) exec -T php php bin/console app:master-data:load --env=test --no-interaction
 	@echo "CI setup complete!"
 
 ci-test:

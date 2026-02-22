@@ -1,0 +1,37 @@
+security:
+    password_hashers:
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+            algorithm: auto
+            cost: 4 # Lowest possible value for bcrypt
+            time_cost: 3 # Lowest possible value for argon
+            memory_cost: 10 # Lowest possible value for argon
+        VanDerSangen\ProjectTemplateBundle\User\Entity\User: 'auto'
+
+    providers:
+        app_user_provider:
+            entity:
+                class: VanDerSangen\ProjectTemplateBundle\User\Entity\User
+                property: email
+
+    firewalls:
+        dev:
+            pattern: ^/(_profiler|_wdt|assets|build)/
+            security: false
+
+        public:
+            pattern: ^/(api/health|api/auth/(login|register|forgot-password|reset-password))
+            security: false
+
+        api:
+            pattern: ^/api
+            stateless: true
+            provider: app_user_provider
+            custom_authenticators:
+                - VanDerSangen\ProjectTemplateBundle\Auth\Security\JwtAuthenticator
+            entry_point: VanDerSangen\ProjectTemplateBundle\Auth\Security\JwtAuthenticator
+
+    access_control:
+        - { path: ^/api/health, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/(login|register|forgot-password|reset-password), roles: PUBLIC_ACCESS }
+        - { path: ^/api, roles: ROLE_USER }
+

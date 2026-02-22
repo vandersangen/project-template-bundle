@@ -1,0 +1,5 @@
+# Import bundle routes
+project_template_bundle:
+    resource: '@ProjectTemplateBundle/config/routes.yaml'
+    prefix: /
+

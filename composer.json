@@ -1,19 +1,19 @@
 {
-    "name": "larsvandersangen/project-template-bundle",
+    "name": "vandersangen/project-template-bundle",
     "type": "symfony-bundle",
     "description": "Reusable Symfony bundle with authentication, user management, and master data loading",
     "keywords": ["symfony", "bundle", "authentication", "jwt", "master-data"],
     "license": "MIT",
-    "homepage": "https://github.com/larsvandersangen/project-template-bundle",
+    "homepage": "https://github.com/vandersangen/project-template-bundle",
     "authors": [
         {
             "name": "Lars van der Sangen",
-            "email": "lars@example.com"
+            "email": "lars@vandersangen.dev"
         }
     ],
     "support": {
-        "issues": "https://github.com/larsvandersangen/project-template-bundle/issues",
-        "source": "https://github.com/larsvandersangen/project-template-bundle"
+        "issues": "https://github.com/vandersangen/project-template-bundle/issues",
+        "source": "https://github.com/vandersangen/project-template-bundle"
     },
     "require": {
         "php": ">=8.5",
@@ -23,15 +23,11 @@
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "doctrine/orm": "^3.6",
         "lexik/jwt-authentication-bundle": "^3.2",
-        "symfony/cache": "7.4.*",
-        "symfony/clock": "7.4.*",
         "symfony/config": "7.4.*",
         "symfony/console": "7.4.*",
         "symfony/dependency-injection": "7.4.*",
         "symfony/doctrine-bridge": "7.4.*",
-        "symfony/error-handler": "7.4.*",
         "symfony/event-dispatcher": "7.4.*",
-        "symfony/expression-language": "7.4.*",
         "symfony/filesystem": "7.4.*",
         "symfony/finder": "7.4.*",
         "symfony/framework-bundle": "7.4.*",
@@ -39,25 +35,18 @@
         "symfony/http-kernel": "7.4.*",
         "symfony/mailer": "7.4.*",
         "symfony/mime": "7.4.*",
-        "symfony/options-resolver": "7.4.*",
         "symfony/password-hasher": "7.4.*",
         "symfony/process": "7.4.*",
-        "symfony/property-access": "7.4.*",
-        "symfony/property-info": "7.4.*",
         "symfony/routing": "7.4.*",
         "symfony/security-bundle": "7.4.*",
         "symfony/security-core": "7.4.*",
-        "symfony/security-csrf": "7.4.*",
         "symfony/security-http": "7.4.*",
-        "symfony/stopwatch": "7.4.*",
         "symfony/string": "7.4.*",
-        "symfony/type-info": "7.4.*",
-        "symfony/var-dumper": "7.4.*",
-        "symfony/var-exporter": "7.4.*",
         "symfony/yaml": "7.4.*"
     },
     "require-dev": {
         "doctrine/doctrine-fixtures-bundle": "^4.3",
+        "nelmio/cors-bundle": "^2.6",
         "phpmd/phpmd": "^2.15",
         "phpro/grumphp": "^2.10",
         "phpunit/phpunit": "^11.5",
@@ -67,22 +56,18 @@
         "symfony/browser-kit": "7.4.*",
         "symfony/css-selector": "7.4.*",
         "symfony/dotenv": "7.4.*",
-        "symfony/flex": "^2",
         "symfony/http-client": "7.4.*",
         "symfony/phpunit-bridge": "7.4.*",
-        "symfony/runtime": "7.4.*",
-        "nelmio/cors-bundle": "^2.6"
+        "symfony/runtime": "7.4.*"
     },
     "autoload": {
         "psr-4": {
-            "LarsVanDerSangen\\ProjectTemplateBundle\\": "bundle/src/",
-            "App\\": "src/"
+            "VanDerSangen\\ProjectTemplateBundle\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "LarsVanDerSangen\\ProjectTemplateBundle\\Tests\\": "bundle/tests/",
-            "App\\Tests\\": "tests/"
+            "VanDerSangen\\ProjectTemplateBundle\\Tests\\": "tests/"
         }
     },
     "minimum-stability": "stable",
@@ -91,7 +76,7 @@
         "allow-plugins": {
             "php-http/discovery": true,
             "phpro/grumphp": true,
-            "symfony/flex": true,
+            "symfony/flex": false,
             "symfony/runtime": true,
             "dealerdirect/phpcodesniffer-composer-installer": true
         },

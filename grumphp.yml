@@ -9,7 +9,7 @@ grumphp:
             '--entrypoint',
             '""',
             '--no-deps',
-            'bundle_api'
+            'php'
         ]
     tasks:
         # PHPMD disabled in favor of shell script below to suppress PHP 8.5 compatibility issues
@@ -17,10 +17,11 @@ grumphp:
         #     ruleset: [ phpmd.xml ]
         #     whitelist_patterns: [ src/ ]
         phpunit:
-            config_file: phpunit.xml
+            config_file: phpunit.dist.xml
         rector:
             config: rector.php
-        phpcs: ~
+        phpcs:
+            standard: phpcs.xml
         shell:
             scripts:
                 - [ "-c", "composer audit --abandoned=ignore" ]

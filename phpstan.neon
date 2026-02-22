@@ -1,0 +1,12 @@
+parameters:
+    level: 6
+    paths:
+        - src
+    excludePaths:
+        - vendor
+        - var
+        - tests
+    ignoreErrors:
+        # Ignore errors in generated files
+        - '#Cannot access offset .* on mixed#'
+

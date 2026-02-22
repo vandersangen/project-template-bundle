@@ -1,42 +1,7 @@
-# Ignore everything by default
-/*
-/*/
-
-# But track the bundle directory
-!/bundle/
-
-# Track important root files
-!/.gitignore
-!/.github
-!/.gitattributes
-!/README.md
-!/CONTRIBUTING.md
-!/SETUP_COMPLETE.md
-!/Makefile
-!/docker-compose-dev.yaml
-!/Dockerfile.dev
-!/docker/
-!/migrations/
-!/grumphp.yml
-!/phpcs.xml
-!/phpmd.xml
-!/phpunit.xml
-!/rector.php
-!/composer.json
-!/.env
-
-# Ignore common files in bundle directory
-/bundle/vendor/
-/bundle/composer.lock
-/bundle/.phpunit.result.cache
-
-
 ###> symfony/framework-bundle ###
 /.env.local
 /.env.local.php
 /.env.*.local
-/config/secrets/prod/prod.decrypt.private.php
-/public/bundles/
 /var/
 /vendor/
 ###< symfony/framework-bundle ###
@@ -49,3 +14,7 @@
 /phpunit.xml
 /.phpunit.cache/
 ###< phpunit/phpunit ###
+
+# Build artifacts
+/coverage.xml
+/composer.lock

@@ -30,10 +30,10 @@ jobs:
           sleep 10
 
           echo "Checking PHP container..."
-          docker exec bundle_api php -v
+          docker exec ptb_php php -v
 
       - name: Install Composer dependencies
-        run: docker exec bundle_api composer install --no-interaction --prefer-dist --optimize-autoloader
+        run: docker exec ptb_php composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: Run Code Quality Checks
         run: make ci-quality

@@ -29,7 +29,7 @@ jobs:
 
       - name: Copy coverage file from container
         if: success()
-        run: docker cp bundle_api:/var/www/coverage.xml ./coverage.xml || true
+        run: docker cp ptb_php:/var/www/coverage.xml ./coverage.xml || true
         continue-on-error: true
 
       - name: Upload coverage to Codecov (optional)
@@ -51,19 +51,19 @@ jobs:
           docker compose -f docker-compose-dev.yaml ps
 
           echo "=== PHP Extensions ==="
-          docker exec bundle_api php -m || true
+          docker exec ptb_php php -m || true
 
           echo "=== PHP Info (PDO section) ==="
-          docker exec bundle_api php -i | grep -A 10 -i pdo || true
+          docker exec ptb_php php -i | grep -A 10 -i pdo || true
 
           echo "=== Environment Variables ==="
-          docker exec bundle_api env | grep -E "(DATABASE|APP_ENV)" || true
+          docker exec ptb_php env | grep -E "(DATABASE|APP_ENV)" || true
 
           echo "=== Docker Logs (last 100 lines) ==="
           docker compose -f docker-compose-dev.yaml logs --tail=100
 
           echo "=== Symfony .env file ==="
-          docker exec bundle_api cat .env | grep DATABASE || true
+          docker exec ptb_php cat .env | grep DATABASE || true
 
       - name: Cleanup
         if: always()

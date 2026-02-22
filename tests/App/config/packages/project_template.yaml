@@ -1,0 +1,3 @@
+project_template:
+    mailer_sender: 'noreply@example.com'
+

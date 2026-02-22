@@ -1,7 +1,7 @@
 # Project Template Bundle
 
-[![CI Pipeline](https://github.com/larsvandersangen/project-template-bundle/workflows/CI%20Pipeline/badge.svg)](https://github.com/larsvandersangen/project-template-bundle/actions)
-[![Code Quality](https://github.com/larsvandersangen/project-template-bundle/workflows/Code%20Quality/badge.svg)](https://github.com/larsvandersangen/project-template-bundle/actions)
+[![CI Pipeline](https://github.com/vanDerSangen/project-template-bundle/workflows/CI%20Pipeline/badge.svg)](https://github.com/vanDerSangen/project-template-bundle/actions)
+[![Code Quality](https://github.com/vanDerSangen/project-template-bundle/workflows/Code%20Quality/badge.svg)](https://github.com/vanDerSangen/project-template-bundle/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A reusable Symfony bundle providing authentication, user management, and master data loading functionality.
@@ -20,7 +20,7 @@ A reusable Symfony bundle providing authentication, user management, and master 
 ### Via Composer (from Packagist)
 
 ```bash
-composer require larsvandersangen/project-template-bundle
+composer require vanDerSangen/project-template-bundle
 ```
 
 ## Requirements
@@ -39,7 +39,7 @@ Add to `config/bundles.php`:
 ```php
 return [
     // ...
-    LarsVanDerSangen\ProjectTemplateBundle\ProjectTemplateBundle::class => ['all' => true],
+    VanDerSangen\ProjectTemplateBundle\ProjectTemplateBundle::class => ['all' => true],
 ];
 ```
 
@@ -69,12 +69,12 @@ Update `config/packages/security.yaml`:
 ```yaml
 security:
     password_hashers:
-        LarsVanDerSangen\ProjectTemplateBundle\User\Entity\User: 'auto'
+        VanDerSangen\ProjectTemplateBundle\User\Entity\User: 'auto'
     
     providers:
         app_user_provider:
             entity:
-                class: LarsVanDerSangen\ProjectTemplateBundle\User\Entity\User
+                class: VanDerSangen\ProjectTemplateBundle\User\Entity\User
                 property: email
     
     firewalls:
@@ -87,8 +87,8 @@ security:
             stateless: true
             provider: app_user_provider
             custom_authenticators:
-                - LarsVanDerSangen\ProjectTemplateBundle\Auth\Security\JwtAuthenticator
-            entry_point: LarsVanDerSangen\ProjectTemplateBundle\Auth\Security\JwtAuthenticator
+                - VanDerSangen\ProjectTemplateBundle\Auth\Security\JwtAuthenticator
+            entry_point: VanDerSangen\ProjectTemplateBundle\Auth\Security\JwtAuthenticator
     
     access_control:
         - { path: ^/api/health, roles: PUBLIC_ACCESS }
@@ -206,6 +206,6 @@ MIT
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/larsvandersangen/project-template-bundle/issues)
-- **Source**: [GitHub Repository](https://github.com/larsvandersangen/project-template-bundle)
+- **Issues**: [GitHub Issues](https://github.com/vanDerSangen/project-template-bundle/issues)
+- **Source**: [GitHub Repository](https://github.com/vanDerSangen/project-template-bundle)
 

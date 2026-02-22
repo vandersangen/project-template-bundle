@@ -13,10 +13,8 @@ return static function (RectorConfig $rectorConfig): void {
         __DIR__ . '/tests',
     ]);
 
-    // Skip auto-generated files
     $rectorConfig->skip([
-        __DIR__ . '/config/reference.php',
-        __DIR__ . '/config/**/reference.php',
+        __DIR__ . '/tests/App',
     ]);
 
     $rectorConfig->sets([

@@ -59,6 +59,7 @@ setup:
 ci-setup:
 	$(DOCKER_COMPOSE) up -d --build
 	$(DOCKER_COMPOSE) exec -T php composer install --no-interaction
+	$(DOCKER_COMPOSE) exec -T php php bin/console lexik:jwt:generate-keypair --skip-if-exists
 	$(DOCKER_COMPOSE) exec -T php php bin/console doctrine:database:create --if-not-exists
 	$(DOCKER_COMPOSE) exec -T php php bin/console doctrine:migrations:migrate --no-interaction
 	$(DOCKER_COMPOSE) exec -T php php bin/console doctrine:database:create --if-not-exists --env=test

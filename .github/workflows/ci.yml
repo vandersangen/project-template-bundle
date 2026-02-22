@@ -7,16 +7,12 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  build-and-test:
-    name: Build Docker Images and Run Tests
+  tests:
+    name: Tests
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Setup CI environment
         run: make ci-setup
@@ -25,14 +21,9 @@ jobs:
         run: make ci-test
 
       - name: Generate code coverage
-        run: make ci-test-coverage
+        run: make ci-coverage
 
-      - name: Copy coverage file from container
-        if: success()
-        run: docker cp ptb_php:/var/www/coverage.xml ./coverage.xml || true
-        continue-on-error: true
-
-      - name: Upload coverage to Codecov (optional)
+      - name: Upload coverage to Codecov
         if: success()
         uses: codecov/codecov-action@v4
         with:
@@ -40,32 +31,23 @@ jobs:
           fail_ci_if_error: false
         continue-on-error: true
 
-      - name: Show test results
-        if: always()
-        run: make ci-test || true
-
-      - name: Show logs on failure
-        if: failure()
-        run: |
-          echo "=== Docker Container Status ==="
-          docker compose -f docker-compose-dev.yaml ps
-
-          echo "=== PHP Extensions ==="
-          docker exec ptb_php php -m || true
-
-          echo "=== PHP Info (PDO section) ==="
-          docker exec ptb_php php -i | grep -A 10 -i pdo || true
-
-          echo "=== Environment Variables ==="
-          docker exec ptb_php env | grep -E "(DATABASE|APP_ENV)" || true
-
-          echo "=== Docker Logs (last 100 lines) ==="
-          docker compose -f docker-compose-dev.yaml logs --tail=100
-
-          echo "=== Symfony .env file ==="
-          docker exec ptb_php cat .env | grep DATABASE || true
-
       - name: Cleanup
         if: always()
         run: make ci-cleanup
 
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup CI environment
+        run: make ci-setup
+
+      - name: Run code quality checks
+        run: make ci-quality
+
+      - name: Cleanup
+        if: always()
+        run: make ci-cleanup

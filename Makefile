@@ -30,9 +30,9 @@ help:
 	@echo "  make rector          - Run Rector (code modernization)"
 	@echo ""
 	@echo "CI/CD (used by GitHub Actions):"
-	@echo "  make ci-setup        - Setup CI environment (build, start, wait for DB, composer, migrations)"
+	@echo "  make ci-setup        - Setup CI environment (build, start, composer, databases, migrations)"
 	@echo "  make ci-test         - Run tests in CI environment"
-	@echo "  make ci-test-coverage - Run tests with coverage in CI environment"
+	@echo "  make ci-coverage     - Run tests with coverage in CI environment"
 	@echo "  make ci-quality      - Run code quality checks in CI environment"
 	@echo "  make ci-cleanup      - Cleanup CI environment (stop containers)"
 
@@ -51,36 +51,32 @@ up-mailer:
 
 setup:
 	$(DOCKER_COMPOSE) up -d --build --remove-orphans
-	@echo "Waiting for database to be ready..."
-	@sleep 5
 	$(DOCKER_COMPOSE) exec php composer install
 	$(DOCKER_COMPOSE) exec php php bin/console doctrine:database:create --if-not-exists
 	$(DOCKER_COMPOSE) exec php php bin/console doctrine:migrations:migrate --no-interaction
 	@echo "Setup complete!"
 
 ci-setup:
-	$(DOCKER_COMPOSE) build
-	$(DOCKER_COMPOSE) up -d
-	@echo "Waiting for database to be ready..."
-	@until $(DOCKER_COMPOSE) exec -T db mysql -u root -proot -e "SELECT 1" > /dev/null 2>&1; do \
-		sleep 2; \
-	done
-	$(DOCKER_COMPOSE) exec php composer install --no-interaction
-	$(DOCKER_COMPOSE) exec php php bin/console doctrine:database:create --if-not-exists
-	$(DOCKER_COMPOSE) exec php php bin/console doctrine:migrations:migrate --no-interaction
+	$(DOCKER_COMPOSE) up -d --build
+	$(DOCKER_COMPOSE) exec -T php composer install --no-interaction
+	$(DOCKER_COMPOSE) exec -T php php bin/console doctrine:database:create --if-not-exists
+	$(DOCKER_COMPOSE) exec -T php php bin/console doctrine:migrations:migrate --no-interaction
+	$(DOCKER_COMPOSE) exec -T php php bin/console doctrine:database:create --if-not-exists --env=test
+	$(DOCKER_COMPOSE) exec -T php php bin/console doctrine:migrations:migrate --no-interaction --env=test
 	@echo "CI setup complete!"
 
 ci-test:
-	$(DOCKER_COMPOSE) exec php vendor/bin/phpunit --testdox
+	$(DOCKER_COMPOSE) exec -T php vendor/bin/phpunit --testdox
 
-ci-test-coverage:
-	$(DOCKER_COMPOSE) exec php vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml
+ci-coverage:
+	$(DOCKER_COMPOSE) exec -T php vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml
+	docker cp ptb_php:/var/www/coverage.xml ./coverage.xml || true
 
 ci-quality:
-	$(DOCKER_COMPOSE) exec php vendor/bin/phpcs --standard=phpcs.xml src/ || true
-	@$(DOCKER_COMPOSE) exec -T php bash -c 'php -d error_reporting="E_ALL & ~E_DEPRECATED" vendor/bin/phpmd src text phpmd.xml 2>&1 | grep -E "^/var/www/src/.+\.(php):[0-9]+" || echo "✓ No PHPMD violations found"' || true
-	$(DOCKER_COMPOSE) exec php vendor/bin/rector process --dry-run || true
-	$(DOCKER_COMPOSE) exec php composer audit --abandoned=ignore || true
+	$(DOCKER_COMPOSE) exec -T php vendor/bin/phpcs --standard=phpcs.xml src/
+	@$(DOCKER_COMPOSE) exec -T php bash -c 'php -d error_reporting="E_ALL & ~E_DEPRECATED" vendor/bin/phpmd src text phpmd.xml 2>&1 | grep -E "^/var/www/src/.+\.(php):[0-9]+" || echo "✓ No PHPMD violations found"'
+	$(DOCKER_COMPOSE) exec -T php vendor/bin/rector process --dry-run
+	$(DOCKER_COMPOSE) exec -T php composer audit --abandoned=ignore
 
 ci-cleanup:
 	$(DOCKER_COMPOSE) down -v

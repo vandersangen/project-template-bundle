@@ -14,7 +14,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
-    name: 'app:master-data:load',
+    name: 'bundle:master-data:load',
     description: 'Load master data from configuration files into the database',
 )]
 class MasterDataLoadCommand extends Command

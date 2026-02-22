@@ -72,12 +72,12 @@ docker exec bundle_api openssl rsa -pubout -in config/jwt/private.pem -out confi
 
 # Maak databases aan
 docker exec bundle_api php bin/console doctrine:schema:create --env=dev
-docker exec bundle_api php bin/console app:master-data:load --env=dev
+docker exec bundle_api php bin/console bundle:master-data:load --env=dev
 
 docker exec bundle_db mysql -u root -proot -e "CREATE DATABASE IF NOT EXISTS bundle_db_test_test;"
 docker exec bundle_db mysql -u root -proot -e "GRANT ALL PRIVILEGES ON bundle_db_test_test.* TO 'bundle_user'@'%'; FLUSH PRIVILEGES;"
 docker exec bundle_api php bin/console doctrine:schema:create --env=test
-docker exec bundle_api php bin/console app:master-data:load --env=test
+docker exec bundle_api php bin/console bundle:master-data:load --env=test
 
 # Run tests
 docker exec bundle_api php bin/phpunit --testdox

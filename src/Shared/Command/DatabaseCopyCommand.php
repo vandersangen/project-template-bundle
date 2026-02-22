@@ -15,7 +15,7 @@ use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Console\Question\ConfirmationQuestion;
 
 #[AsCommand(
-    name: 'app:database:copy',
+    name: 'bundle:database:copy',
     description: 'Copy a database to the current branch database',
 )]
 class DatabaseCopyCommand extends Command

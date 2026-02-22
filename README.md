@@ -124,7 +124,7 @@ php bin/console doctrine:migrations:migrate
 ### 8. Load Master Data
 
 ```bash
-php bin/console app:master-data:load
+php bin/console bundle:master-data:load
 ```
 
 ## Usage

@@ -38,6 +38,11 @@ class UserService
         return $this->userRepository->find($userId);
     }
 
+    public function findByResetToken(string $token): ?User
+    {
+        return $this->userRepository->findByResetToken($token);
+    }
+
     public function generateResetToken(User $user): string
     {
         $token = bin2hex(random_bytes(32));

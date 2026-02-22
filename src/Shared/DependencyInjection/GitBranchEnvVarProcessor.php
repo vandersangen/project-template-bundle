@@ -90,8 +90,8 @@ class GitBranchEnvVarProcessor implements EnvVarProcessorInterface
     /**
      * Process the environment variable.
      *
-     * @param string   $prefix The processor prefix (git_branch_db).
-     * @param string   $name   The base database name.
+     * @param string $prefix The processor prefix (git_branch_db).
+     * @param string $name   The base database name.
      * @param \Closure $getEnv Closure to get environment variables.
      *
      * @return string The processed database name.

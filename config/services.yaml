@@ -11,6 +11,12 @@ services:
             - '../src/ProjectTemplateBundle.php'
             - '../src/User/Entity/'
             - '../src/User/Enum/'
+            - '../src/Mail/Entity/'
+            - '../src/Mail/Enum/'
+            - '../src/Mail/Template/'
+            - '../src/Queue/Message/'
+            - '../src/Queue/Entity/'
+            - '../src/Queue/Enum/'
 
     # Controllers
     VanDerSangen\ProjectTemplateBundle\Api\Controller\:
@@ -25,10 +31,21 @@ services:
         resource: '../src/User/Controller/'
         tags: ['controller.service_arguments']
 
-    # Mail Service with configurable sender
-    VanDerSangen\ProjectTemplateBundle\Shared\Service\MailService:
+    # Mail Module Service
+    VanDerSangen\ProjectTemplateBundle\Mail\Service\MailService:
         arguments:
             $senderEmail: '%project_template.mailer_sender%'
+    # Queue Module Services
+    VanDerSangen\ProjectTemplateBundle\Queue\Service\QueueService:
+        arguments:
+            $messageBus: '@messenger.default_bus'
+    VanDerSangen\ProjectTemplateBundle\Queue\Handler\SendMailMessageHandler:
+        tags:
+            - { name: messenger.message_handler }
+
+    VanDerSangen\ProjectTemplateBundle\Queue\Middleware\QueueJobLogMiddleware:
+        arguments:
+            $logRepository: '@VanDerSangen\ProjectTemplateBundle\Queue\Repository\QueueJobLogRepository'
 
     # Custom environment variable processor for Git branch-based database naming
     VanDerSangen\ProjectTemplateBundle\Shared\DependencyInjection\GitBranchEnvVarProcessor:

@@ -16,10 +16,10 @@ class Configuration implements ConfigurationInterface
 
         $rootNode
             ->children()
-                ->scalarNode('mailer_sender')
-                    ->defaultValue('noreply@example.com')
-                    ->info('Default sender email address for the mailer service')
-                ->end()
+            ->scalarNode('mailer_sender')
+            ->defaultValue('noreply@example.com')
+            ->info('Default sender email address for the mailer service')
+            ->end()
             ->end();
 
         return $treeBuilder;

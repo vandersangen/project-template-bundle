@@ -20,7 +20,7 @@
     </rule>
     <rule ref="rulesets/naming.xml/ShortVariable">
         <properties>
-            <property name="exceptions" value="id,to,em,qb" />
+            <property name="exceptions" value="id,to,em,qb,cc" />
         </properties>
     </rule>
     <rule ref="rulesets/unusedcode.xml" />

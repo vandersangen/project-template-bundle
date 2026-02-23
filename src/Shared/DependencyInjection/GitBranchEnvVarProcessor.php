@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace VanDerSangen\ProjectTemplateBundle\Shared\DependencyInjection;
 
 use Symfony\Component\DependencyInjection\EnvVarProcessorInterface;
+use Symfony\Component\HttpKernel\KernelInterface;
 
 /**
  * Custom environment variable processor that generates database names based on Git branch.
@@ -18,6 +19,11 @@ class GitBranchEnvVarProcessor implements EnvVarProcessorInterface
 {
     private const string DEFAULT_BRANCH = 'main';
     private const string DB_PREFIX = 'app_db_';
+
+    public function __construct(
+        private readonly KernelInterface $kernel,
+    ) {
+    }
 
     /**
      * Get the current Git branch name, sanitized for use in database names.
@@ -49,7 +55,7 @@ class GitBranchEnvVarProcessor implements EnvVarProcessorInterface
     private function getBranchFromGit(): ?string
     {
         // Check if we're in a git repository
-        $gitDir = getcwd();
+        $gitDir = $this->kernel->getProjectDir();
         while ($gitDir !== '/' && !is_dir($gitDir . '/.git')) {
             $gitDir = dirname($gitDir);
         }
@@ -90,8 +96,8 @@ class GitBranchEnvVarProcessor implements EnvVarProcessorInterface
     /**
      * Process the environment variable.
      *
-     * @param string   $prefix The processor prefix (git_branch_db).
-     * @param string   $name   The base database name.
+     * @param string $prefix The processor prefix (git_branch_db).
+     * @param string $name   The base database name.
      * @param \Closure $getEnv Closure to get environment variables.
      *
      * @return string The processed database name.

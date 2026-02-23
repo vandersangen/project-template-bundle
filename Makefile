@@ -75,7 +75,7 @@ ci-coverage:
 	docker cp ptb_php:/var/www/coverage.xml ./coverage.xml || true
 
 ci-quality:
-	$(DOCKER_COMPOSE) exec -T php vendor/bin/phpcs --standard=phpcs.xml src/
+	$(DOCKER_COMPOSE) exec -T php vendor/bin/phpcs --standard=phpcs.xml
 	@$(DOCKER_COMPOSE) exec -T php bash -c 'php -d error_reporting="E_ALL & ~E_DEPRECATED" vendor/bin/phpmd src text phpmd.xml 2>&1 | grep -E "^/var/www/src/.+\.(php):[0-9]+" || echo "✓ No PHPMD violations found"'
 	$(DOCKER_COMPOSE) exec -T php vendor/bin/rector process --dry-run
 	$(DOCKER_COMPOSE) exec -T php composer audit --abandoned=ignore
@@ -104,10 +104,9 @@ test:
 	$(DOCKER_COMPOSE) exec php ./vendor/bin/phpunit
 
 phpcs:
-	$(DOCKER_COMPOSE) exec php ./vendor/bin/phpcs --standard=phpcs.xml src/
-
+	$(DOCKER_COMPOSE) exec php ./vendor/bin/phpcs --standard=phpcs.xml
 phpcbf:
-	$(DOCKER_COMPOSE) exec php ./vendor/bin/phpcbf --standard=phpcs.xml src/
+	$(DOCKER_COMPOSE) exec php ./vendor/bin/phpcbf --standard=phpcs.xml
 
 phpmd:
 	@echo "Running PHPMD with PHP 8.5 compatibility handling..."

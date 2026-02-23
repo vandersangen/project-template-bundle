@@ -117,9 +117,13 @@ lexik_jwt_authentication:
 
 ### 7. Run Migrations
 
+The bundle automatically registers its migrations in your application. When you run the migrations command, both your application's migrations and the bundle's migrations will be executed:
+
 ```bash
 php bin/console doctrine:migrations:migrate
 ```
+
+The bundle's migrations are registered under the `DoctrineMigrations\ProjectTemplateBundle` namespace and will create the required tables (`users`, `mails`, `queue_job_logs`).
 
 ### 8. Load Master Data
 

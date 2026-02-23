@@ -1,5 +1,5 @@
 doctrine_migrations:
-    migrations_paths:
-        'DoctrineMigrations': '%kernel.project_dir%/migrations'
+    # migrations_paths come from ProjectTemplateExtension (DoctrineMigrations\ProjectTemplateBundle => migrations/)
+    # Do not add 'DoctrineMigrations' => migrations here or the same migrations are loaded twice
     enable_profiler: false
 

@@ -46,7 +46,29 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
                         'prefix' => 'VanDerSangen\\ProjectTemplateBundle\\User\\Entity',
                         'alias' => 'ProjectTemplateBundle',
                     ],
+                    'ProjectTemplateBundleMail' => [
+                        'type' => 'attribute',
+                        'is_bundle' => false,
+                        'dir' => $bundleDir . '/Mail/Entity',
+                        'prefix' => 'VanDerSangen\\ProjectTemplateBundle\\Mail\\Entity',
+                        'alias' => 'ProjectTemplateBundleMail',
+                    ],
+                    'ProjectTemplateBundleQueue' => [
+                        'type' => 'attribute',
+                        'is_bundle' => false,
+                        'dir' => $bundleDir . '/Queue/Entity',
+                        'prefix' => 'VanDerSangen\\ProjectTemplateBundle\\Queue\\Entity',
+                        'alias' => 'ProjectTemplateBundleQueue',
+                    ],
                 ],
+            ],
+        ]);
+
+        // Register bundle migrations so consuming applications can execute them
+        $bundleRootDir = dirname($bundleDir);
+        $container->prependExtensionConfig('doctrine_migrations', [
+            'migrations_paths' => [
+                'DoctrineMigrations\\ProjectTemplateBundle' => $bundleRootDir . '/migrations',
             ],
         ]);
     }

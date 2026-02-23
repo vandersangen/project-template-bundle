@@ -26,10 +26,10 @@ class MasterDataHydrator
     /**
      * Hydrate and persist entities from configuration.
      *
-     * @param string                           $entityType The entity type (e.g., 'users', 'orders').
+     * @param string $entityType The entity type (e.g., 'users', 'orders').
      * @param array<int, array<string, mixed>> $items      Configuration items with 'class' property.
-     * @param array<string, mixed>             $options    Hydration options (e.g., uniqueFields, passwordField).
-     * @param bool                             $flush      Whether to flush changes immediately (default: false).
+     * @param array<string, mixed> $options    Hydration options (e.g., uniqueFields, passwordField).
+     * @param bool $flush      Whether to flush changes immediately (default: false).
      *
      * @return int Number of entities created.
      *
@@ -83,7 +83,7 @@ class MasterDataHydrator
     /**
      * Resolve and set entity relationships after all entities are created.
      *
-     * @param string                           $entityType The entity type (e.g., 'users', 'orders').
+     * @param string $entityType The entity type (e.g., 'users', 'orders').
      * @param array<int, array<string, mixed>> $items      Configuration items with 'class' property.
      */
     public function resolveRelationships(string $entityType, array $items): void
@@ -116,7 +116,7 @@ class MasterDataHydrator
     private function entityExists(string $entityClass, array $itemData, array $options): bool
     {
         $uniqueFields = $options['uniqueFields'] ?? [];
-        
+
         if (empty($uniqueFields)) {
             return false;
         }
@@ -136,11 +136,11 @@ class MasterDataHydrator
 
         $qb = $repository->createQueryBuilder('e');
         $index = 0;
-        
+
         foreach ($criteria as $field => $value) {
             $paramName = 'param' . $index;
             $qb->andWhere("e.$field = :$paramName")
-               ->setParameter($paramName, $value);
+                ->setParameter($paramName, $value);
             $index++;
         }
 
@@ -150,10 +150,10 @@ class MasterDataHydrator
     /**
      * Hydrate entity from array data.
      *
-     * @param string               $entityClass          The entity class name.
+     * @param string $entityClass          The entity class name.
      * @param array<string, mixed> $itemData             The item data.
      * @param array<string, mixed> $options              Hydration options.
-     * @param bool                 $includeRelationships Whether to process relationship references.
+     * @param bool $includeRelationships Whether to process relationship references.
      *
      * @return object|null The hydrated entity or null on failure.
      *
@@ -204,9 +204,9 @@ class MasterDataHydrator
     /**
      * Set relationships on an entity based on cid/guid references.
      *
-     * @param object               $entity     The entity to set relationships on.
+     * @param object $entity     The entity to set relationships on.
      * @param array<string, mixed> $itemData   The item data with relationship references.
-     * @param string               $entityType The entity type.
+     * @param string $entityType The entity type.
      *
      * @throws \RuntimeException If referenced entity cannot be resolved.
      */

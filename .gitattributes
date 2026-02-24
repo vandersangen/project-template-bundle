@@ -1,29 +1,24 @@
-# Auto detect text files and perform LF normalization
+# Normalize line endings
 * text=auto
 
-# Exclude development files from export (git archive / Packagist)
-# Deze bestanden zijn NIET nodig voor gebruikers van de bundle als Composer package.
+# Exclude from export (git archive / Packagist dist). Alleen dev-tooling en repo-metadata.
+# WEL meenemen in package: /src, /config, /migrations (nodig voor consumerende apps).
 /.gitattributes export-ignore
 /.gitignore export-ignore
 /.github export-ignore
-/CONTRIBUTING.md export-ignore
-/DEVELOPMENT.md export-ignore
-/BUNDLE_SETUP.md export-ignore
-/SETUP_COMPLETE.md export-ignore
-/PACKAGIST_SETUP.md export-ignore
 /Makefile export-ignore
+/docker export-ignore
 /docker-compose-dev.yaml export-ignore
 /Dockerfile.dev export-ignore
-/docker export-ignore
-/tests export-ignore
-/var export-ignore
+/compose.yaml export-ignore
+/compose.override.yaml export-ignore
 /vendor export-ignore
 /bin export-ignore
-/migrations export-ignore
-/symfony.lock export-ignore
+/var export-ignore
+/public export-ignore
 /.env export-ignore
 /.env.test export-ignore
-/public export-ignore
+/symfony.lock export-ignore
 /phpunit.dist.xml export-ignore
 /phpunit.xml export-ignore
 /phpstan.neon export-ignore
@@ -31,9 +26,10 @@
 /phpmd.xml export-ignore
 /rector.php export-ignore
 /grumphp.yml export-ignore
-/compose.yaml export-ignore
-/compose.override.yaml export-ignore
 
-# NIET uitsluiten: /src en /config — dit is de daadwerkelijke bundle broncode
-# die Composer nodig heeft bij installatie via dist (zipball/tarball).
-
+# Documentatie (optioneel voor package-gebruikers)
+/CONTRIBUTING.md export-ignore
+/DEVELOPMENT.md export-ignore
+/BUNDLE_SETUP.md export-ignore
+/SETUP_COMPLETE.md export-ignore
+/PACKAGIST_SETUP.md export-ignore

@@ -13,6 +13,7 @@ A reusable Symfony bundle providing authentication, user management, and master 
 - **Master Data Loading**: Flexible master data loading from PHP configuration files
 - **Database Tools**: Git branch-based database naming, database copy command
 - **Health Checks**: API health check endpoints
+- **Queue (Messenger)**: Async message handling, `QueueJobLog` for monitoring, failed jobs in a separate transport
 - **Fully Tested**: 35 tests with 96 assertions (100% passing)
 
 ## Installation
@@ -194,6 +195,17 @@ Content-Type: application/json
     "password": "NewSecurePass123!"
 }
 ```
+
+### Queue and failed jobs
+
+The bundle registers a **failed** Messenger transport. Jobs that fail after all retries are moved there. To list or retry them:
+
+```bash
+php bin/console messenger:failed:show failed
+php bin/console bundle:queue:retry-failed --force
+```
+
+See [docs/messenger-failed-jobs.md](docs/messenger-failed-jobs.md) for details and cron examples.
 
 ### Protected Endpoints
 

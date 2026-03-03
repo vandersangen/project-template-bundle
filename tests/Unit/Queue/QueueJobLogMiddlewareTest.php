@@ -231,4 +231,130 @@ class QueueJobLogMiddlewareTest extends TestCase
         $this->assertEquals('Partial output before crash', $savedLogs[1]->getStdout());
         $this->assertStringContainsString('Crash', $savedLogs[1]->getStderr());
     }
+
+    public function testMessageWithUninitializedPropertyIsStoredAsUninitialized(): void
+    {
+        $message = new class () {
+            public \stdClass $uninitialized;
+        };
+        $envelope = new Envelope($message);
+        $savedLog = null;
+        $this->repository->expects($this->exactly(2))
+            ->method('save')
+            ->willReturnCallback(function (QueueJobLog $log) use (&$savedLog) {
+                $savedLog = clone $log;
+            });
+        $nextMiddleware = $this->createMock(MiddlewareInterface::class);
+        $nextMiddleware->method('handle')->willReturn($envelope);
+        $stack = $this->createMock(StackInterface::class);
+        $stack->method('next')->willReturn($nextMiddleware);
+        $this->middleware->handle($envelope, $stack);
+        $this->assertSame(['uninitialized' => '[uninitialized]'], $savedLog->getMessageData());
+    }
+
+    public function testMessageWithObjectPropertyWithoutToStringIsStoredAsTypeString(): void
+    {
+        $message = new readonly class (new \stdClass()) {
+            public function __construct(
+                public \stdClass $obj,
+            ) {
+            }
+        };
+        $envelope = new Envelope($message);
+        $savedLog = null;
+        $this->repository->expects($this->exactly(2))
+            ->method('save')
+            ->willReturnCallback(function (QueueJobLog $log) use (&$savedLog) {
+                $savedLog = clone $log;
+            });
+        $nextMiddleware = $this->createMock(MiddlewareInterface::class);
+        $nextMiddleware->method('handle')->willReturn($envelope);
+        $stack = $this->createMock(StackInterface::class);
+        $stack->method('next')->willReturn($nextMiddleware);
+        $this->middleware->handle($envelope, $stack);
+        $this->assertSame(['obj' => '[object stdClass]'], $savedLog->getMessageData());
+    }
+
+    public function testMessageWithObjectPropertyWithToStringIsStoredAsString(): void
+    {
+        $withToString = new class () {
+            public function __toString(): string
+            {
+                return 'custom-string-value';
+            }
+        };
+        $message = new readonly class ($withToString) {
+            public function __construct(
+                public object $at,
+            ) {
+            }
+        };
+        $envelope = new Envelope($message);
+        $savedLog = null;
+        $this->repository->expects($this->exactly(2))
+            ->method('save')
+            ->willReturnCallback(function (QueueJobLog $log) use (&$savedLog) {
+                $savedLog = clone $log;
+            });
+        $nextMiddleware = $this->createMock(MiddlewareInterface::class);
+        $nextMiddleware->method('handle')->willReturn($envelope);
+        $stack = $this->createMock(StackInterface::class);
+        $stack->method('next')->willReturn($nextMiddleware);
+        $this->middleware->handle($envelope, $stack);
+        $this->assertSame('custom-string-value', $savedLog->getMessageData()['at']);
+    }
+
+    public function testMessageWithArrayContainingObjectSanitizesNestedObject(): void
+    {
+        $message = new readonly class ([new \stdClass()]) {
+            public function __construct(
+                public array $items,
+            ) {
+            }
+        };
+        $envelope = new Envelope($message);
+        $savedLog = null;
+        $this->repository->expects($this->exactly(2))
+            ->method('save')
+            ->willReturnCallback(function (QueueJobLog $log) use (&$savedLog) {
+                $savedLog = clone $log;
+            });
+        $nextMiddleware = $this->createMock(MiddlewareInterface::class);
+        $nextMiddleware->method('handle')->willReturn($envelope);
+        $stack = $this->createMock(StackInterface::class);
+        $stack->method('next')->willReturn($nextMiddleware);
+        $this->middleware->handle($envelope, $stack);
+        $this->assertSame(['items' => [0 => '[object stdClass]']], $savedLog->getMessageData());
+    }
+
+    public function testMessageWithObjectWhoseToStringThrowsIsStoredAsTypeString(): void
+    {
+        $message = new readonly class (new class () {
+            public function __toString(): string
+            {
+                throw new \RuntimeException('toString fails');
+            }
+        }) {
+            public function __construct(
+                public object $bad,
+            ) {
+            }
+        };
+        $envelope = new Envelope($message);
+        $savedLog = null;
+        $this->repository->expects($this->exactly(2))
+            ->method('save')
+            ->willReturnCallback(function (QueueJobLog $log) use (&$savedLog) {
+                $savedLog = clone $log;
+            });
+        $nextMiddleware = $this->createMock(MiddlewareInterface::class);
+        $nextMiddleware->method('handle')->willReturn($envelope);
+        $stack = $this->createMock(StackInterface::class);
+        $stack->method('next')->willReturn($nextMiddleware);
+        $this->middleware->handle($envelope, $stack);
+        $data = $savedLog->getMessageData();
+        $this->assertArrayHasKey('bad', $data);
+        $this->assertIsString($data['bad']);
+        $this->assertStringStartsWith('[object ', $data['bad']);
+    }
 }

@@ -71,5 +71,23 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
                 'DoctrineMigrations\\ProjectTemplateBundle' => $bundleRootDir . '/migrations',
             ],
         ]);
+
+        // Messenger: failed jobs transport (DSN from MESSENGER_TRANSPORT_DSN + queue_name=failed)
+        // + QueueJobLogMiddleware on default bus (CompilerPass also adds it if config merge overwrites)
+        $container->prependExtensionConfig('framework', [
+            'messenger' => [
+                'transports' => [
+                    'async' => ['failure_transport' => 'failed'],
+                    'failed' => ['dsn' => '%env(messenger_failed_dsn:MESSENGER_TRANSPORT_DSN)%'],
+                ],
+                'buses' => [
+                    'messenger.bus.default' => [
+                        'middleware' => [
+                            \VanDerSangen\ProjectTemplateBundle\Queue\Middleware\QueueJobLogMiddleware::class,
+                        ],
+                    ],
+                ],
+            ],
+        ]);
     }
 }

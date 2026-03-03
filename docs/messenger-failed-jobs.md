@@ -2,6 +2,19 @@
 
 The bundle configures a **failed** transport. When a queue job fails after the maximum number of retries (default 3), the message is moved to the **failed** transport and stored in a separate queue (Doctrine transport with `queue_name=failed`).
 
+Configure your async transport with `failure_transport: failed` so failed messages are sent to this transport:
+
+```yaml
+# config/packages/messenger.yaml
+framework:
+    messenger:
+        transports:
+            async:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                failure_transport: failed
+            # ...
+```
+
 ## Commands
 
 - **List failed jobs**

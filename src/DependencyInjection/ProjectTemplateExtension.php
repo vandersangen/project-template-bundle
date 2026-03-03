@@ -72,12 +72,13 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
             ],
         ]);
 
-        // Messenger: failed jobs transport (DSN from MESSENGER_TRANSPORT_DSN + queue_name=failed)
-        // + QueueJobLogMiddleware on default bus (CompilerPass also adds it if config merge overwrites)
+        // Messenger: failed transport only (do not prepend async -
+        // in CI async may not be defined yet, causing "Undefined array key dsn").
+        // App must set failure_transport: failed on their async transport.
+        // QueueJobLogMiddleware is also added via QueueJobLogMiddlewarePass.
         $container->prependExtensionConfig('framework', [
             'messenger' => [
                 'transports' => [
-                    'async' => ['failure_transport' => 'failed'],
                     'failed' => ['dsn' => '%env(messenger_failed_dsn:MESSENGER_TRANSPORT_DSN)%'],
                 ],
                 'buses' => [

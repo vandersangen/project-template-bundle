@@ -27,7 +27,14 @@ class MessengerFailedDsnEnvProcessor implements EnvVarProcessorInterface
      */
     public function getEnv(string $prefix, string $name, \Closure $getEnv): string
     {
-        $dsn = (string) $getEnv($name);
+        try {
+            $dsn = (string) $getEnv($name);
+        } catch (\Throwable) {
+            $dsn = '';
+        }
+        if ($dsn === '') {
+            return 'doctrine://default?queue_name=' . rawurlencode(self::QUEUE_NAME) . '&auto_setup=1';
+        }
 
         return $this->addQueueNameToDsn($dsn, self::QUEUE_NAME);
     }

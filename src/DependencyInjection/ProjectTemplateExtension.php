@@ -71,5 +71,24 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
                 'DoctrineMigrations\\ProjectTemplateBundle' => $bundleRootDir . '/migrations',
             ],
         ]);
+
+        // Messenger: failed transport only (do not prepend async -
+        // in CI async may not be defined yet, causing "Undefined array key dsn").
+        // App must set failure_transport: failed on their async transport.
+        // QueueJobLogMiddleware is also added via QueueJobLogMiddlewarePass.
+        $container->prependExtensionConfig('framework', [
+            'messenger' => [
+                'transports' => [
+                    'failed' => ['dsn' => '%env(messenger_failed_dsn:MESSENGER_TRANSPORT_DSN)%'],
+                ],
+                'buses' => [
+                    'messenger.bus.default' => [
+                        'middleware' => [
+                            \VanDerSangen\ProjectTemplateBundle\Queue\Middleware\QueueJobLogMiddleware::class,
+                        ],
+                    ],
+                ],
+            ],
+        ]);
     }
 }

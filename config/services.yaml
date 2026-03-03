@@ -51,6 +51,10 @@ services:
     VanDerSangen\ProjectTemplateBundle\Shared\DependencyInjection\GitBranchEnvVarProcessor:
         tags: ['container.env_var_processor']
 
+    # Env processor: failed transport DSN from MESSENGER_TRANSPORT_DSN + queue_name=failed
+    VanDerSangen\ProjectTemplateBundle\Shared\DependencyInjection\MessengerFailedDsnEnvProcessor:
+        tags: ['container.env_var_processor']
+
     # Database copy command (only for dev/test environments)
     VanDerSangen\ProjectTemplateBundle\Shared\Command\DatabaseCopyCommand:
         arguments:

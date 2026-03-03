@@ -63,16 +63,55 @@ class QueueJobLogMiddleware implements MiddlewareInterface
         $reflection = new ReflectionClass($message);
 
         foreach ($reflection->getProperties() as $property) {
-            $value = $property->getValue($message);
+            try {
+                $value = $property->getValue($message);
+            } catch (\Throwable) {
+                $data[$property->getName()] = '[uninitialized]';
+                continue;
+            }
 
-            if (is_scalar($value) || is_null($value) || is_array($value)) {
+            if (is_scalar($value) || is_null($value)) {
                 $data[$property->getName()] = $value;
                 continue;
             }
 
-            $data[$property->getName()] = (string) $value;
+            if (is_array($value)) {
+                $data[$property->getName()] = $this->sanitizeArray($value);
+                continue;
+            }
+
+            if (is_object($value)) {
+                $data[$property->getName()] = $this->objectToLogString($value);
+            }
         }
 
         return $data;
+    }
+
+    private function sanitizeArray(array $value): array
+    {
+        $out = [];
+        foreach ($value as $k => $v) {
+            if (is_scalar($v) || is_null($v)) {
+                $out[$k] = $v;
+            } elseif (is_array($v)) {
+                $out[$k] = $this->sanitizeArray($v);
+            } elseif (is_object($v)) {
+                $out[$k] = $this->objectToLogString($v);
+            }
+        }
+        return $out;
+    }
+
+    private function objectToLogString(object $value): string
+    {
+        if (method_exists($value, '__toString')) {
+            try {
+                return (string) $value;
+            } catch (\Throwable) {
+                // fallback if __toString throws
+            }
+        }
+        return '[object ' . get_debug_type($value) . ']';
     }
 }

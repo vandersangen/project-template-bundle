@@ -3,3 +3,7 @@ services:
         autowire: true
         autoconfigure: true
 
+    # Optional: load with doctrine:fixtures:load in test env to get a SuperAdmin user (username: superadmin, password: test)
+    VanDerSangen\ProjectTemplateBundle\Tests\App\DataFixtures\SuperAdminUserFixture:
+        tags: [doctrine.fixture.orm]
+

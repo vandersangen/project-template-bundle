@@ -16,3 +16,15 @@ auth_controllers:
         namespace: VanDerSangen\ProjectTemplateBundle\Auth\Controller
     type: attribute
 
+cron_controllers:
+    resource:
+        path: ../src/Cron/Controller/
+        namespace: VanDerSangen\ProjectTemplateBundle\Cron\Controller
+    type: attribute
+
+super_admin_controllers:
+    resource:
+        path: ../src/SuperAdmin/Controller/
+        namespace: VanDerSangen\ProjectTemplateBundle\SuperAdmin\Controller
+    type: attribute
+

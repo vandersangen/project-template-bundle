@@ -30,6 +30,7 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
 
         // Store bundle directory for routing
         $container->setParameter('project_template.bundle_dir', dirname(__DIR__));
+        $container->setParameter('project_template.bundle_root', dirname(__DIR__, 2));
     }
 
     public function prepend(ContainerBuilder $container): void
@@ -60,12 +61,29 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
                         'prefix' => 'VanDerSangen\\ProjectTemplateBundle\\Queue\\Entity',
                         'alias' => 'ProjectTemplateBundleQueue',
                     ],
+                    'ProjectTemplateBundleCron' => [
+                        'type' => 'attribute',
+                        'is_bundle' => false,
+                        'dir' => $bundleDir . '/Cron/Entity',
+                        'prefix' => 'VanDerSangen\\ProjectTemplateBundle\\Cron\\Entity',
+                        'alias' => 'ProjectTemplateBundleCron',
+                    ],
+                    'ProjectTemplateBundleSuperAdmin' => [
+                        'type' => 'attribute',
+                        'is_bundle' => false,
+                        'dir' => $bundleDir . '/SuperAdmin/Entity',
+                        'prefix' => 'VanDerSangen\\ProjectTemplateBundle\\SuperAdmin\\Entity',
+                        'alias' => 'ProjectTemplateBundleSuperAdmin',
+                    ],
                 ],
             ],
         ]);
 
         // Register bundle migrations so consuming applications can execute them
         $bundleRootDir = dirname($bundleDir);
+        $container->prependExtensionConfig('twig', [
+            'paths' => [$bundleRootDir . '/Resources/views' => 'ProjectTemplateBundle'],
+        ]);
         $container->prependExtensionConfig('doctrine_migrations', [
             'migrations_paths' => [
                 'DoctrineMigrations\\ProjectTemplateBundle' => $bundleRootDir . '/migrations',

@@ -1,0 +1,42 @@
+{% extends '@ProjectTemplateBundle/cron_admin/layout.html.twig' %}
+
+{% block title %}Cron verwijderen{% endblock %}
+
+{% block body %}
+<div class="mb-4">
+    <a href="{{ path('cron_admin_index') }}" class="text-muted text-decoration-none small">
+        <i class="fa-solid fa-chevron-left me-1"></i>Terug naar overzicht
+    </a>
+    <h4 class="mt-2 mb-0 fw-bold text-danger">
+        <i class="fa-solid fa-triangle-exclamation me-2"></i>Cron verwijderen
+    </h4>
+</div>
+
+<div class="page-card" style="max-width: 520px;">
+    <div class="d-flex align-items-start gap-3 mb-4">
+        <div class="rounded-circle bg-danger bg-opacity-10 d-flex align-items-center justify-content-center flex-shrink-0"
+             style="width:48px;height:48px;">
+            <i class="fa-solid fa-trash text-danger"></i>
+        </div>
+        <div>
+            <h5 class="mb-1">Weet je het zeker?</h5>
+            <p class="mb-0 text-muted">
+                Je staat op het punt om <strong>{{ cron.name }}</strong> te verwijderen.<br>
+                <code>{{ cron.command }}</code> — deze actie kan niet ongedaan worden gemaakt.
+            </p>
+        </div>
+    </div>
+
+    <form method="post" action="{{ path('cron_admin_delete_confirm', { id: cron.id }) }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('cron_delete_' ~ cron.id) }}">
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-danger">
+                <i class="fa-solid fa-trash me-1"></i>Ja, verwijderen
+            </button>
+            <a href="{{ path('cron_admin_index') }}" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-xmark me-1"></i>Annuleren
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

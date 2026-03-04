@@ -14,6 +14,8 @@ A reusable Symfony bundle providing authentication, user management, and master 
 - **Database Tools**: Git branch-based database naming, database copy command
 - **Health Checks**: API health check endpoints
 - **Queue (Messenger)**: Async message handling, `QueueJobLog` for monitoring, failed jobs in a separate transport
+- **SuperAdmin**: Eigen login en gebruikers; alleen SuperAdmin-users hebben toegang. Zie [docs/super-admin.md](docs/super-admin.md)
+- **Cron**: Scheduler command; cron-beheer (API en web UI) zit in de SuperAdmin-module. Zie [docs/cron-module.md](docs/cron-module.md)
 - **Fully Tested**: 35 tests with 96 assertions (100% passing)
 
 ## Installation
@@ -55,13 +57,16 @@ project_template:
 
 ### 3. Import Routes
 
-Add to `config/routes.yaml`:
+Add to `config/routes.yaml` (path relative to your `config/` directory):
 
 ```yaml
 project_template:
-    resource: '@ProjectTemplateBundle/config/routes.yaml'
+    resource: '../vendor/vandersangen/project-template-bundle/config/routes.yaml'
+    type: yaml
     prefix: /
 ```
+
+With a path repository use e.g. `../project-template-bundle/config/routes.yaml`. Then run `php bin/console cache:clear` and `php bin/console debug:router` to verify.
 
 ### 4. Configure Security
 

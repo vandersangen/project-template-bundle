@@ -17,6 +17,8 @@ services:
             - '../src/Queue/Message/'
             - '../src/Queue/Entity/'
             - '../src/Queue/Enum/'
+            - '../src/Cron/Entity/'
+            - '../src/SuperAdmin/Entity/'
 
     # Controllers
     VanDerSangen\ProjectTemplateBundle\Api\Controller\:
@@ -31,6 +33,17 @@ services:
         resource: '../src/User/Controller/'
         tags: ['controller.service_arguments']
 
+    VanDerSangen\ProjectTemplateBundle\Cron\Controller\:
+        resource: '../src/Cron/Controller/'
+        tags: ['controller.service_arguments']
+
+    VanDerSangen\ProjectTemplateBundle\SuperAdmin\Controller\:
+        resource: '../src/SuperAdmin/Controller/'
+        tags: ['controller.service_arguments']
+
+    VanDerSangen\ProjectTemplateBundle\Routing\ProjectTemplateRouteLoader:
+        tags: [routing.route_loader]
+
     # Mail Module Service
     VanDerSangen\ProjectTemplateBundle\Mail\Service\MailService:
         arguments:
@@ -40,6 +53,9 @@ services:
         arguments:
             $messageBus: '@messenger.default_bus'
     VanDerSangen\ProjectTemplateBundle\Queue\Handler\SendMailMessageHandler:
+        tags:
+            - { name: messenger.message_handler }
+    VanDerSangen\ProjectTemplateBundle\Queue\Handler\RunCronMessageHandler:
         tags:
             - { name: messenger.message_handler }
 

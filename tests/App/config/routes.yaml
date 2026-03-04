@@ -1,5 +1,6 @@
-# Import bundle routes
+# Import bundle routes (same as app: type service so routes always load)
 project_template_bundle:
-    resource: '@ProjectTemplateBundle/config/routes.yaml'
+    resource: 'VanDerSangen\ProjectTemplateBundle\Routing\ProjectTemplateRouteLoader::loadRoutes'
+    type: service
     prefix: /
 

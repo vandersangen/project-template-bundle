@@ -1,0 +1,90 @@
+{% extends '@ProjectTemplateBundle/cron_admin/layout.html.twig' %}
+
+{% block title %}Cron overzicht{% endblock %}
+
+{% block body %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h4 class="mb-0 fw-bold"><i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i>Cron overzicht</h4>
+        <small class="text-muted">{{ crons|length }} geplande ta{{ crons|length == 1 ? 'ak' : 'ken' }}</small>
+    </div>
+    <a href="{{ path('cron_admin_new') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus me-1"></i>Nieuwe cron
+    </a>
+</div>
+
+<div class="page-card">
+    {% if crons is empty %}
+        <div class="empty-state">
+            <i class="fa-regular fa-clock d-block"></i>
+            <h5>Nog geen crons aangemaakt</h5>
+            <p class="mb-3">Voeg een geplande taak toe om te beginnen.</p>
+            <a href="{{ path('cron_admin_new') }}" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus me-1"></i>Eerste cron aanmaken
+            </a>
+        </div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Naam</th>
+                        <th>Commando</th>
+                        <th>Schedule</th>
+                        <th>Status</th>
+                        <th>Laatste run</th>
+                        <th>Volgende run</th>
+                        <th class="text-end">Acties</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cron in crons %}
+                        <tr>
+                            <td class="fw-semibold">{{ cron.name }}</td>
+                            <td><code>{{ cron.command }}</code></td>
+                            <td><code>{{ cron.schedule }}</code></td>
+                            <td>
+                                {% if cron.enabled %}
+                                    <span class="badge text-bg-success">
+                                        <i class="fa-solid fa-circle-check me-1"></i>Actief
+                                    </span>
+                                {% else %}
+                                    <span class="badge text-bg-secondary">
+                                        <i class="fa-solid fa-circle-pause me-1"></i>Inactief
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted small">
+                                {% if cron.lastRunAt %}
+                                    <i class="fa-regular fa-clock me-1"></i>{{ cron.lastRunAt|date('d-m-Y H:i') }}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted small">
+                                {% if cron.nextRunAt %}
+                                    <i class="fa-regular fa-calendar me-1"></i>{{ cron.nextRunAt|date('d-m-Y H:i') }}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{{ path('cron_admin_edit', { id: cron.id }) }}"
+                                   class="btn btn-sm btn-outline-secondary btn-action me-1"
+                                   title="Bewerken">
+                                    <i class="fa-solid fa-pencil"></i>
+                                </a>
+                                <a href="{{ path('cron_admin_delete', { id: cron.id }) }}"
+                                   class="btn btn-sm btn-outline-danger btn-action"
+                                   title="Verwijderen">
+                                    <i class="fa-solid fa-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

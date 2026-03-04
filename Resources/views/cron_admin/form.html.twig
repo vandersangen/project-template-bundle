@@ -1,0 +1,97 @@
+{% extends '@ProjectTemplateBundle/cron_admin/layout.html.twig' %}
+
+{% block title %}{{ cron is defined ? 'Cron bewerken' : 'Nieuwe cron' }}{% endblock %}
+
+{% block body %}
+<div class="mb-4">
+    <a href="{{ path('cron_admin_index') }}" class="text-muted text-decoration-none small">
+        <i class="fa-solid fa-chevron-left me-1"></i>Terug naar overzicht
+    </a>
+    <h4 class="mt-2 mb-0 fw-bold">
+        <i class="fa-solid fa-{{ cron is defined ? 'pencil' : 'plus-circle' }} me-2 text-primary"></i>
+        {{ cron is defined ? 'Cron bewerken' : 'Nieuwe cron aanmaken' }}
+    </h4>
+</div>
+
+<div class="page-card" style="max-width: 680px;">
+    {% if error is defined and error %}
+        <div class="alert alert-danger d-flex align-items-center gap-2" role="alert">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span>{{ error }}</span>
+        </div>
+    {% endif %}
+
+    <form method="post" action="{{ action }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('cron_form') }}">
+
+        <div class="mb-3">
+            <label for="name" class="form-label fw-semibold">Naam</label>
+            <input type="text" id="name" name="name" class="form-control"
+                   value="{{ form.name|default('') }}"
+                   placeholder="bijv. Dagelijkse backup"
+                   required>
+        </div>
+
+        <div class="mb-3">
+            <label for="command" class="form-label fw-semibold">Commando</label>
+            <div class="input-group">
+                <span class="input-group-text text-muted"><i class="fa-solid fa-terminal"></i></span>
+                <input type="text" id="command" name="command" class="form-control font-monospace"
+                       value="{{ form.command|default('') }}"
+                       placeholder="bijv. app:my:command"
+                       required>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label for="commandArguments" class="form-label fw-semibold">
+                Commando-argumenten
+                <span class="text-muted fw-normal small">(JSON, optioneel)</span>
+            </label>
+            <textarea id="commandArguments" name="commandArguments" rows="2"
+                      class="form-control font-monospace"
+                      placeholder='{"argName": "value"} of ["pos1", "pos2"]'>{% if form.commandArguments is defined and form.commandArguments is not null %}{% if form.commandArguments is iterable %}{{ form.commandArguments|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_UNICODE')) }}{% else %}{{ form.commandArguments }}{% endif %}{% endif %}</textarea>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+                <label for="schedule" class="form-label fw-semibold">Cron-expressie</label>
+                <div class="input-group">
+                    <span class="input-group-text text-muted"><i class="fa-regular fa-clock"></i></span>
+                    <input type="text" id="schedule" name="schedule" class="form-control font-monospace"
+                           value="{{ form.schedule|default('') }}"
+                           placeholder="* * * * *"
+                           required>
+                </div>
+                <div class="form-text">minuut uur dag maand weekdag</div>
+            </div>
+            <div class="col-sm-6">
+                <label for="timezone" class="form-label fw-semibold">Timezone</label>
+                <div class="input-group">
+                    <span class="input-group-text text-muted"><i class="fa-solid fa-earth-europe"></i></span>
+                    <input type="text" id="timezone" name="timezone" class="form-control"
+                           value="{{ form.timezone|default('UTC') }}"
+                           placeholder="UTC">
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="enabled" name="enabled" value="1"
+                       {{ form.enabled|default(true) ? 'checked' : '' }}>
+                <label class="form-check-label fw-semibold" for="enabled">Ingeschakeld</label>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-floppy-disk me-1"></i>Opslaan
+            </button>
+            <a href="{{ path('cron_admin_index') }}" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-xmark me-1"></i>Annuleren
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

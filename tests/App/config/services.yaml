@@ -7,3 +7,6 @@ services:
     VanDerSangen\ProjectTemplateBundle\Tests\App\DataFixtures\SuperAdminUserFixture:
         tags: [doctrine.fixture.orm]
 
+    # Allow tests to override services via $container->set(...)
+    VanDerSangen\ProjectTemplateBundle\Payment\Service\WebhookHandler:
+        public: true

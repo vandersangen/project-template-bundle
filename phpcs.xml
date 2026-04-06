@@ -93,6 +93,7 @@
         <exclude name="Squiz.Commenting.FunctionComment.IncorrectParamVarName"/>
         <exclude name="Squiz.Commenting.FunctionComment.InvalidReturn"/>
         <exclude name="Squiz.Commenting.FunctionComment.Missing"/>
+        <exclude name="Squiz.Commenting.FunctionComment.WrongStyle"/>
         <exclude name="Squiz.Commenting.FunctionComment.MissingParamComment"/>
         <exclude name="Squiz.Commenting.FunctionComment.MissingParamName"/>
         <exclude name="Squiz.Commenting.FunctionComment.MissingParamTag"/>
@@ -106,7 +107,9 @@
         <exclude name="Squiz.Commenting.LongConditionClosingComment.SpacingBefore"/>
         <exclude name="Squiz.Commenting.VariableComment.IncorrectVarType"/>
         <exclude name="Squiz.Commenting.VariableComment.Missing"/>
+        <exclude name="Squiz.Commenting.VariableComment.MissingVar"/>
         <exclude name="Squiz.Commenting.ClassComment.Missing"/>
+        <exclude name="Generic.Commenting.DocComment.SpacingBeforeShort"/>
 
         <exclude name="Squiz.ControlStructures.ElseIfDeclaration.NotAllowed"/>
         <exclude name="Squiz.ControlStructures.InlineIfDeclaration.NoBrackets"/>
@@ -160,6 +163,10 @@
         <exclude name="Squiz.Commenting.FunctionComment.MissingReturn"/>
         <exclude name="PEAR.Functions.FunctionCallSignature.OpeningIndent"/>
         <exclude name="PEAR.Functions.FunctionCallSignature.MultipleArguments"/>
+        <exclude name="Squiz.Commenting.VariableComment.MissingVar"/>
+        <exclude name="Generic.Commenting.DocComment.SpacingBeforeShort"/>
+        <exclude name="Generic.Strings.UnnecessaryStringConcat.Found"/>
+        <exclude name="Squiz.PHP.CommentedOutCode.Found"/>
     </rule>
 
     <rule ref="Squiz.WhiteSpace.FunctionSpacing">

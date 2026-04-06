@@ -19,6 +19,11 @@ services:
             - '../src/Queue/Enum/'
             - '../src/Cron/Entity/'
             - '../src/SuperAdmin/Entity/'
+            - '../src/Tenant/Entity/'
+            - '../src/Payment/Entity/'
+            - '../src/Payment/Enum/'
+            - '../src/Payment/Event/'
+            - '../src/Payment/Message/'
 
     # Controllers
     VanDerSangen\ProjectTemplateBundle\Api\Controller\:
@@ -39,6 +44,14 @@ services:
 
     VanDerSangen\ProjectTemplateBundle\SuperAdmin\Controller\:
         resource: '../src/SuperAdmin/Controller/'
+        tags: ['controller.service_arguments']
+
+    VanDerSangen\ProjectTemplateBundle\Payment\Controller\:
+        resource: '../src/Payment/Controller/'
+        tags: ['controller.service_arguments']
+
+    VanDerSangen\ProjectTemplateBundle\Tenant\Controller\:
+        resource: '../src/Tenant/Controller/'
         tags: ['controller.service_arguments']
 
     VanDerSangen\ProjectTemplateBundle\Routing\ProjectTemplateRouteLoader:
@@ -97,3 +110,27 @@ services:
             $referenceRegistry: '@VanDerSangen\ProjectTemplateBundle\Shared\Service\EntityReferenceRegistry'
             $passwordHasher: '@security.user_password_hasher'
 
+    # Payment Module Services
+    VanDerSangen\ProjectTemplateBundle\Payment\Client\PaymentApiClient:
+        arguments:
+            $httpClient: '@http_client'
+            $baseUrl: '%project_template.payment.api_base_url%'
+            $apiToken: '%project_template.payment.api_token%'
+
+    VanDerSangen\ProjectTemplateBundle\Payment\Controller\PaymentWebhookController:
+        arguments:
+            $webhookSecret: '%project_template.payment.webhook_secret%'
+        tags: ['controller.service_arguments']
+
+    VanDerSangen\ProjectTemplateBundle\Payment\Handler\CreateSubscriptionMessageHandler:
+        tags:
+            - { name: messenger.message_handler }
+    VanDerSangen\ProjectTemplateBundle\Payment\Handler\SyncSubscriptionMessageHandler:
+        tags:
+            - { name: messenger.message_handler }
+    VanDerSangen\ProjectTemplateBundle\Payment\Handler\CancelSubscriptionMessageHandler:
+        tags:
+            - { name: messenger.message_handler }
+    VanDerSangen\ProjectTemplateBundle\Payment\Handler\SyncPaymentMessageHandler:
+        tags:
+            - { name: messenger.message_handler }

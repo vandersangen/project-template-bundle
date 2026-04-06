@@ -1,6 +1,7 @@
 framework:
     secret: '%env(APP_SECRET)%'
     http_method_override: false
+    http_client: true
     handle_all_throwables: true
     test: true
 

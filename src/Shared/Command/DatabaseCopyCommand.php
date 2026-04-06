@@ -23,6 +23,7 @@ class DatabaseCopyCommand extends Command
     private const string DB_PREFIX = 'app_db_';
 
     private string $databaseHost;
+    private ?int $databasePort;
     private string $databaseUser;
     private string $databasePassword;
     private ?Connection $systemConnection = null;
@@ -44,6 +45,7 @@ class DatabaseCopyCommand extends Command
         $parsed = parse_url($url);
 
         $this->databaseHost = $parsed['host'] ?? 'db';
+        $this->databasePort = isset($parsed['port']) ? (int) $parsed['port'] : null;
         $this->databaseUser = $parsed['user'] ?? 'user';
         $this->databasePassword = $parsed['pass'] ?? 'password';
     }
@@ -62,6 +64,10 @@ class DatabaseCopyCommand extends Command
                 'password' => $this->databasePassword,
                 'charset' => 'utf8mb4',
             ];
+
+            if ($this->databasePort !== null) {
+                $connectionParams['port'] = $this->databasePort;
+            }
 
             $this->systemConnection = DriverManager::getConnection($connectionParams);
         }

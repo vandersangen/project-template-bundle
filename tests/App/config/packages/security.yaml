@@ -24,7 +24,7 @@ security:
             security: false
 
         public:
-            pattern: ^/(api/health|api/auth/(login|register|forgot-password|reset-password))
+            pattern: ^/(api/health|api/auth/(login|register|forgot-password|reset-password)|api/payment/webhook)
             security: false
 
         api:
@@ -51,6 +51,7 @@ security:
     access_control:
         - { path: ^/api/health, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/(login|register|forgot-password|reset-password), roles: PUBLIC_ACCESS }
+        - { path: ^/api/payment/webhook, roles: PUBLIC_ACCESS }
         - { path: ^/super-admin/login, roles: PUBLIC_ACCESS }
         - { path: ^/super-admin, roles: ROLE_SUPER_ADMIN }
         - { path: ^/api, roles: ROLE_USER }

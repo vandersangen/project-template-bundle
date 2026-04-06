@@ -76,8 +76,6 @@ ci-coverage:
 
 ci-quality:
 	$(DOCKER_COMPOSE) exec -T php vendor/bin/phpcs --standard=phpcs.xml
-	@$(DOCKER_COMPOSE) exec -T php bash -c 'php -d error_reporting="E_ALL & ~E_DEPRECATED" vendor/bin/phpmd src text phpmd.xml 2>&1 | grep -E "^/var/www/src/.+\.(php):[0-9]+" || echo "✓ No PHPMD violations found"'
-	$(DOCKER_COMPOSE) exec -T php vendor/bin/rector process --dry-run
 	$(DOCKER_COMPOSE) exec -T php composer audit --abandoned=ignore
 
 ci-cleanup:

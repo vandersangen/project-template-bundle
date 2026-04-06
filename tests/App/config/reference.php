@@ -1331,6 +1331,11 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  * }
  * @psalm-type ProjectTemplateConfig = array{
  *     mailer_sender?: scalar|Param|null, // Default sender email address for the mailer service // Default: "noreply@example.com"
+ *     payment?: array{
+ *         api_base_url?: scalar|Param|null, // Base URL of the central payment-api (e.g. http://app.payment-api.localhost:4243) // Default: "%env(PAYMENT_API_BASE_URL)%"
+ *         api_token?: scalar|Param|null, // JWT token used to authenticate against the payment-api // Default: "%env(PAYMENT_API_TOKEN)%"
+ *         webhook_secret?: scalar|Param|null, // Shared secret validated in X-Webhook-Secret header on incoming webhooks // Default: "%env(PAYMENT_WEBHOOK_SECRET)%"
+ *     },
  * }
  * @psalm-type TwigConfig = array{
  *     form_themes?: list<scalar|Param|null>,

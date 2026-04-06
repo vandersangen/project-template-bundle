@@ -28,6 +28,11 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
         // Set parameters from configuration
         $container->setParameter('project_template.mailer_sender', $config['mailer_sender']);
 
+        // Payment module parameters
+        $container->setParameter('project_template.payment.api_base_url', $config['payment']['api_base_url']);
+        $container->setParameter('project_template.payment.api_token', $config['payment']['api_token']);
+        $container->setParameter('project_template.payment.webhook_secret', $config['payment']['webhook_secret']);
+
         // Store bundle directory for routing
         $container->setParameter('project_template.bundle_dir', dirname(__DIR__));
         $container->setParameter('project_template.bundle_root', dirname(__DIR__, 2));
@@ -74,6 +79,20 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
                         'dir' => $bundleDir . '/SuperAdmin/Entity',
                         'prefix' => 'VanDerSangen\\ProjectTemplateBundle\\SuperAdmin\\Entity',
                         'alias' => 'ProjectTemplateBundleSuperAdmin',
+                    ],
+                    'ProjectTemplateBundleTenant' => [
+                        'type' => 'attribute',
+                        'is_bundle' => false,
+                        'dir' => $bundleDir . '/Tenant/Entity',
+                        'prefix' => 'VanDerSangen\\ProjectTemplateBundle\\Tenant\\Entity',
+                        'alias' => 'ProjectTemplateBundleTenant',
+                    ],
+                    'ProjectTemplateBundlePayment' => [
+                        'type' => 'attribute',
+                        'is_bundle' => false,
+                        'dir' => $bundleDir . '/Payment/Entity',
+                        'prefix' => 'VanDerSangen\\ProjectTemplateBundle\\Payment\\Entity',
+                        'alias' => 'ProjectTemplateBundlePayment',
                     ],
                 ],
             ],

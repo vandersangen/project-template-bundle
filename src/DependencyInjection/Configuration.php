@@ -20,6 +20,23 @@ class Configuration implements ConfigurationInterface
             ->defaultValue('noreply@example.com')
             ->info('Default sender email address for the mailer service')
             ->end()
+            ->arrayNode('payment')
+                ->addDefaultsIfNotSet()
+                ->children()
+                    ->scalarNode('api_base_url')
+                        ->defaultValue('%env(PAYMENT_API_BASE_URL)%')
+                        ->info('Base URL of the central payment-api (e.g. http://app.payment-api.localhost:4243)')
+                    ->end()
+                    ->scalarNode('api_token')
+                        ->defaultValue('%env(PAYMENT_API_TOKEN)%')
+                        ->info('JWT token used to authenticate against the payment-api')
+                    ->end()
+                    ->scalarNode('webhook_secret')
+                        ->defaultValue('%env(PAYMENT_WEBHOOK_SECRET)%')
+                        ->info('Shared secret validated in X-Webhook-Secret header on incoming webhooks')
+                    ->end()
+                ->end()
+            ->end()
             ->end();
 
         return $treeBuilder;

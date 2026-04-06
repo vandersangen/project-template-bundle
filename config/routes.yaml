@@ -28,3 +28,15 @@ super_admin_controllers:
         namespace: VanDerSangen\ProjectTemplateBundle\SuperAdmin\Controller
     type: attribute
 
+payment_controllers:
+    resource:
+        path: ../src/Payment/Controller/
+        namespace: VanDerSangen\ProjectTemplateBundle\Payment\Controller
+    type: attribute
+
+tenant_controllers:
+    resource:
+        path: ../src/Tenant/Controller/
+        namespace: VanDerSangen\ProjectTemplateBundle\Tenant\Controller
+    type: attribute
+

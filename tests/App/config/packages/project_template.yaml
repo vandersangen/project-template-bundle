@@ -1,3 +1,6 @@
 project_template:
     mailer_sender: 'noreply@example.com'
-
+    payment:
+        api_base_url: 'http://payment-api.test'
+        api_token: 'test-token'
+        webhook_secret: 'test-webhook-secret'

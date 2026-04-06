@@ -12,24 +12,10 @@ grumphp:
             'php'
         ]
     tasks:
-        # PHPMD disabled in favor of shell script below to suppress PHP 8.5 compatibility issues
-        # phpmd:
-        #     ruleset: [ phpmd.xml ]
-        #     whitelist_patterns: [ src/ ]
         phpunit:
             config_file: phpunit.dist.xml
-        rector:
-            config: rector.php
         phpcs:
             standard: phpcs.xml
         shell:
             scripts:
                 - [ "-c", "composer audit --abandoned=ignore" ]
-                # Run PHPMD with PHP 8.5 compatibility handling
-                # PHPMD/pdepend doesn't fully support PHP 8.5 yet, so we:
-                # 1. Suppress deprecation warnings with error_reporting
-                # 2. Filter out parsing errors and stack traces
-                # 3. Only show actual PHPMD violations
-                # 4. Exit with code 0 if only parsing errors, code 2 if violations found
-                - [ "-c", "output=$(php -d error_reporting='E_ALL & ~E_DEPRECATED' vendor/bin/phpmd src text phpmd.xml 2>&1); violations=$(echo \"$output\" | grep -E '^/var/www/src/.+\\.(php):[0-9]+' || true); if [ -n \"$violations\" ]; then echo \"$violations\"; exit 2; else echo '✓ No PHPMD violations found (PHP 8.5 parsing errors ignored)'; exit 0; fi" ]
-

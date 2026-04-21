@@ -49,4 +49,22 @@ class SubscriptionRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['toolUserReference' => $toolUserReference]);
     }
+
+    /**
+     * Finds active subscriptions whose nextBillingDate is in the past.
+     * Used by the sync cron to catch up on missed webhooks.
+     *
+     * @return Subscription[]
+     */
+    public function findOverdueForSync(\DateTimeImmutable $now): array
+    {
+        return $this->createQueryBuilder('s')
+            ->where('s.status = :active')
+            ->andWhere('s.nextBillingDate IS NOT NULL')
+            ->andWhere('s.nextBillingDate < :now')
+            ->setParameter('active', SubscriptionStatus::ACTIVE->value)
+            ->setParameter('now', $now)
+            ->getQuery()
+            ->getResult();
+    }
 }

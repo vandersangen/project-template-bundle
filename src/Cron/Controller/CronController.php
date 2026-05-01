@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace VanDerSangen\ProjectTemplateBundle\Cron\Controller;
 
 use InvalidArgumentException;
+use Psr\Log\LoggerInterface;
 use VanDerSangen\ProjectTemplateBundle\Cron\Entity\Cron;
 use VanDerSangen\ProjectTemplateBundle\Cron\Service\CronService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -18,7 +19,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class CronController extends AbstractController
 {
     public function __construct(
-        private readonly CronService $cronService,
+        private readonly CronService $cronService
     ) {
     }
 

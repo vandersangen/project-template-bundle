@@ -31,6 +31,14 @@ class QueueJobLogMiddleware implements MiddlewareInterface
 
         $this->logRepository->save($jobLog, true);
 
+        \Sentry\addBreadcrumb(new \Sentry\Breadcrumb(
+            \Sentry\Breadcrumb::LEVEL_INFO,
+            \Sentry\Breadcrumb::TYPE_DEFAULT,
+            'queue',
+            sprintf('Processing: %s', $message::class),
+            $jobLog->getMessageData() ?? [],
+        ));
+
         ob_start();
 
         try {

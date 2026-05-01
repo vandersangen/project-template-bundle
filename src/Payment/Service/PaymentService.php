@@ -185,6 +185,46 @@ class PaymentService
     }
 
     /**
+     * Schedule a plan change effective after the next billing cycle.
+     *
+     * Marks the current subscription for cancellation after one more charge, and stores
+     * the new plan details so a new subscription is automatically created afterwards.
+     *
+     * @throws \LogicException When subscription is not active.
+     */
+    public function changePlan(
+        Subscription $subscription,
+        int $newAmountCents,
+        SubscriptionInterval $newInterval,
+        string $returnUrl,
+    ): Subscription {
+        if (!$subscription->getStatus()->isActive()) {
+            throw new \LogicException(sprintf(
+                'Subscription %d cannot have its plan changed from status "%s".',
+                $subscription->getId(),
+                $subscription->getStatus()->value,
+            ));
+        }
+
+        $subscription->setPendingPlanChangeData([
+            'amountCents' => $newAmountCents,
+            'interval' => $newInterval->value,
+            'returnUrl' => $returnUrl,
+        ]);
+        $this->subscriptionRepository->save($subscription, true);
+
+        // Cancel after one more charge so current period is honoured
+        $this->cancelSubscription(
+            subscription: $subscription,
+            immediate: false,
+            reason: 'plan_change',
+            allowOneMoreCharge: true,
+        );
+
+        return $subscription;
+    }
+
+    /**
      * Create a retry payment for an existing subscription via the payment-api.
      * Uses the subscription-specific retry endpoint which creates a new mandate payment
      * linked to the subscription, with a publicly accessible webhook URL via ngrok.

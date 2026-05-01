@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace VanDerSangen\ProjectTemplateBundle\DependencyInjection;
 
+use Monolog\Logger as MonologLogger;
+use Sentry\Monolog\Handler as SentryMonologHandler;
+use Sentry\SentryBundle\Monolog\LogsHandler as SentryLogsHandler;
+use Sentry\State\HubInterface;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
+use Symfony\Component\DependencyInjection\Reference;
 
 class ProjectTemplateExtension extends Extension implements PrependExtensionInterface
 {
@@ -20,6 +26,25 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
         );
 
         $loader->load('services.yaml');
+
+        if ($container->hasExtension('sentry')) {
+            $loader->load('sentry_services.yaml');
+        }
+
+        if (class_exists(SentryMonologHandler::class) && class_exists(SentryLogsHandler::class)) {
+            $handlerDef = new Definition(SentryMonologHandler::class, [
+                new Reference(HubInterface::class),
+                MonologLogger::ERROR,
+                true,
+                false,
+            ]);
+            $handlerDef->setPublic(false);
+            $container->setDefinition('project_template.sentry.monolog_handler', $handlerDef);
+
+            $logsDef = new Definition(SentryLogsHandler::class, [MonologLogger::INFO]);
+            $logsDef->setPublic(false);
+            $container->setDefinition('project_template.sentry.monolog_logs_handler', $logsDef);
+        }
 
         // Process configuration
         $configuration = new Configuration();
@@ -108,6 +133,26 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
                 'DoctrineMigrations\\ProjectTemplateBundle' => $bundleRootDir . '/migrations',
             ],
         ]);
+
+        // Auto-configure Sentry monolog handlers when both SentryBundle and MonologBundle are registered
+        if ($container->hasExtension('sentry') && $container->hasExtension('monolog')) {
+            $container->prependExtensionConfig('sentry', [
+                'options' => ['enable_logs' => true],
+            ]);
+            $container->prependExtensionConfig('monolog', [
+                'handlers' => [
+                    'sentry' => [
+                        'type' => 'service',
+                        'id'   => 'project_template.sentry.monolog_handler',
+                    ],
+                    'sentry_logs' => [
+                        'type'     => 'service',
+                        'id'       => 'project_template.sentry.monolog_logs_handler',
+                        'channels' => ['app', 'php', 'doctrine', 'request'],
+                    ],
+                ],
+            ]);
+        }
 
         // Messenger: failed transport only (do not prepend async -
         // in CI async may not be defined yet, causing "Undefined array key dsn").

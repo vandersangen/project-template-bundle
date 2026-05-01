@@ -1,0 +1,19 @@
+services:
+    VanDerSangen\ProjectTemplateBundle\Queue\EventSubscriber\SentryMessengerSubscriber:
+        arguments:
+            $hub: '@Sentry\State\HubInterface'
+        tags:
+            - { name: kernel.event_subscriber }
+
+    project_template.sentry.monolog_handler:
+        class: Sentry\Monolog\Handler
+        arguments:
+            $hub: '@Sentry\State\HubInterface'
+            $level: 400
+            $bubble: true
+            $fillExtraContext: false
+
+    project_template.sentry.monolog_logs_handler:
+        class: Sentry\SentryBundle\Monolog\LogsHandler
+        arguments:
+            $level: 200

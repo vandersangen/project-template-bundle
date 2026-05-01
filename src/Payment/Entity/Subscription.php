@@ -91,6 +91,10 @@ class Subscription
     #[ORM\Column(nullable: true)]
     private ?DateTimeImmutable $endsAt = null;
 
+    /** Pending plan change data: {amountCents, interval, returnUrl}. Set when user requests a plan switch. */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $pendingPlanChangeData = null;
+
     #[ORM\Column]
     private ?DateTimeImmutable $createdAt = null;
 
@@ -328,6 +332,17 @@ class Subscription
     public function setEndsAt(?DateTimeImmutable $endsAt): static
     {
         $this->endsAt = $endsAt;
+        return $this;
+    }
+
+    public function getPendingPlanChangeData(): ?array
+    {
+        return $this->pendingPlanChangeData;
+    }
+
+    public function setPendingPlanChangeData(?array $pendingPlanChangeData): static
+    {
+        $this->pendingPlanChangeData = $pendingPlanChangeData;
         return $this;
     }
 

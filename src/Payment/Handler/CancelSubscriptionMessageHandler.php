@@ -8,6 +8,7 @@ use VanDerSangen\ProjectTemplateBundle\Payment\Message\CancelSubscriptionMessage
 use VanDerSangen\ProjectTemplateBundle\Payment\Repository\SubscriptionRepository;
 use VanDerSangen\ProjectTemplateBundle\Payment\Service\PaymentService;
 use VanDerSangen\ProjectTemplateBundle\Queue\Handler\AsyncMessageHandlerInterface;
+use RuntimeException;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -26,7 +27,7 @@ class CancelSubscriptionMessageHandler implements AsyncMessageHandlerInterface
     {
         $subscription = $this->subscriptionRepository->find($message->getSubscriptionId());
         if ($subscription === null) {
-            throw new \RuntimeException(sprintf('Subscription %d not found.', $message->getSubscriptionId()));
+            throw new RuntimeException(sprintf('Subscription %d not found.', $message->getSubscriptionId()));
         }
 
         $this->paymentService->cancelSubscription(

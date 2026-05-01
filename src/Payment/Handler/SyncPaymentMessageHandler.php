@@ -8,6 +8,7 @@ use VanDerSangen\ProjectTemplateBundle\Payment\Message\SyncPaymentMessage;
 use VanDerSangen\ProjectTemplateBundle\Payment\Repository\PaymentRepository;
 use VanDerSangen\ProjectTemplateBundle\Payment\Service\PaymentService;
 use VanDerSangen\ProjectTemplateBundle\Queue\Handler\AsyncMessageHandlerInterface;
+use RuntimeException;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -26,7 +27,7 @@ class SyncPaymentMessageHandler implements AsyncMessageHandlerInterface
     {
         $payment = $this->paymentRepository->find($message->getPaymentId());
         if ($payment === null) {
-            throw new \RuntimeException(sprintf('Payment %d not found.', $message->getPaymentId()));
+            throw new RuntimeException(sprintf('Payment %d not found.', $message->getPaymentId()));
         }
 
         $this->paymentService->syncPayment($payment, $message->isForceSync());

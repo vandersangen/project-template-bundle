@@ -191,6 +191,9 @@ class SubscriptionController extends AbstractController
         $immediate = $data['immediate'] ?? false;
         $reason = $data['reason'] ?? 'user_request';
 
+        // Clear pending plan change when user explicitly cancels
+        $subscription->setPendingPlanChangeData(null);
+
         try {
             $subscription = $this->paymentService->cancelSubscription(
                 subscription: $subscription,
@@ -206,6 +209,67 @@ class SubscriptionController extends AbstractController
         } catch (\Exception $e) {
             return $this->json(
                 ['error' => 'Failed to cancel subscription: ' . $e->getMessage()],
+                Response::HTTP_INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+
+    #[Route('/api/subscriptions/{id}/change-plan', name: 'subscription_change_plan', methods: ['PATCH'])]
+    public function changePlan(int $id, Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->json(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $subscription = $this->subscriptionRepository->find($id);
+        if ($subscription === null) {
+            return $this->json(['error' => 'Subscription not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        if ($subscription->getUserId() !== $user->getId()) {
+            return $this->json(['error' => 'Forbidden'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$subscription->getStatus()->isActive()) {
+            return $this->json(
+                ['error' => 'Plan can only be changed on an active subscription'],
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
+        $data = json_decode($request->getContent(), true) ?? [];
+        $amountCents = $data['amountCents'] ?? null;
+        $interval = $data['interval'] ?? null;
+        $returnUrl = $data['returnUrl'] ?? null;
+
+        if ($amountCents === null || $interval === null || $returnUrl === null) {
+            return $this->json(
+                ['error' => 'amountCents, interval and returnUrl are required'],
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
+        try {
+            $intervalEnum = SubscriptionInterval::from($interval);
+        } catch (\ValueError) {
+            return $this->json(['error' => 'Invalid interval'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $subscription = $this->paymentService->changePlan(
+                subscription: $subscription,
+                newAmountCents: (int) $amountCents,
+                newInterval: $intervalEnum,
+                returnUrl: $returnUrl,
+            );
+
+            return $this->json($this->serializeSubscription($subscription));
+        } catch (\LogicException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        } catch (\Exception $e) {
+            return $this->json(
+                ['error' => 'Failed to change plan: ' . $e->getMessage()],
                 Response::HTTP_INTERNAL_SERVER_ERROR
             );
         }
@@ -332,6 +396,8 @@ class SubscriptionController extends AbstractController
             SubscriptionStatus::PENDING_CANCELLATION,
         ], true);
 
+        $pendingData = $subscription->getPendingPlanChangeData();
+
         return [
             'id' => $subscription->getId(),
             'status' => $status->value,
@@ -344,6 +410,10 @@ class SubscriptionController extends AbstractController
             'chargeCount' => $subscription->getChargeCount(),
             'createdAt' => $subscription->getCreatedAt()?->format('c'),
             'checkoutUrl' => $needsPayment ? $subscription->getCheckoutUrl() : null,
+            'pendingPlanChange' => $pendingData !== null ? [
+                'amountCents' => $pendingData['amountCents'],
+                'interval' => $pendingData['interval'],
+            ] : null,
         ];
     }
 }

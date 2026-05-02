@@ -30,6 +30,6 @@ class SyncSubscriptionMessageHandler implements AsyncMessageHandlerInterface
             throw new RuntimeException(sprintf('Subscription %d not found.', $message->getSubscriptionId()));
         }
 
-        $this->paymentService->syncSubscription($subscription);
+        $this->paymentService->syncSubscription($subscription, $message->isForceSync());
     }
 }

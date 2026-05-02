@@ -27,6 +27,9 @@ class SubscriptionRepository extends ServiceEntityRepository
         }
     }
 
+    /**
+     * @return Subscription[]
+     */
     public function findByTenantId(int $tenantId): array
     {
         return $this->findBy(['tenantId' => $tenantId]);
@@ -48,6 +51,27 @@ class SubscriptionRepository extends ServiceEntityRepository
     public function findByToolUserReference(string $toolUserReference): ?Subscription
     {
         return $this->findOneBy(['toolUserReference' => $toolUserReference]);
+    }
+
+    /**
+     * Finds all subscriptions in a non-terminal state (excludes CANCELLED).
+     * Used by the daily full sync cron to reconcile all live subscriptions with Mollie.
+     *
+     * @return Subscription[]
+     */
+    public function findAllSyncable(): array
+    {
+        return $this->createQueryBuilder('s')
+            ->where('s.status IN (:statuses)')
+            ->setParameter('statuses', [
+                SubscriptionStatus::PENDING->value,
+                SubscriptionStatus::ACTIVE->value,
+                SubscriptionStatus::PAST_DUE->value,
+                SubscriptionStatus::VERIFICATION_FAILED->value,
+                SubscriptionStatus::PENDING_CANCELLATION->value,
+            ])
+            ->getQuery()
+            ->getResult();
     }
 
     /**

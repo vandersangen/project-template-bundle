@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace VanDerSangen\ProjectTemplateBundle\Payment\Repository;
 
 use VanDerSangen\ProjectTemplateBundle\Payment\Entity\Payment;
+use VanDerSangen\ProjectTemplateBundle\Payment\Enum\PaymentStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -26,6 +27,9 @@ class PaymentRepository extends ServiceEntityRepository
         }
     }
 
+    /**
+     * @return Payment[]
+     */
     public function findByTenantId(int $tenantId): array
     {
         return $this->findBy(['tenantId' => $tenantId], ['createdAt' => 'DESC']);
@@ -36,8 +40,22 @@ class PaymentRepository extends ServiceEntityRepository
         return $this->findOneBy(['paymentApiPaymentId' => $paymentApiPaymentId]);
     }
 
+    /**
+     * @return Payment[]
+     */
     public function findBySubscriptionId(int $subscriptionId): array
     {
         return $this->findBy(['subscription' => $subscriptionId], ['createdAt' => 'DESC']);
+    }
+
+    /**
+     * Finds all payments that are still awaiting a final status from Mollie.
+     * Used by the daily full sync cron to reconcile open payments.
+     *
+     * @return Payment[]
+     */
+    public function findAllPending(): array
+    {
+        return $this->findBy(['status' => PaymentStatus::PENDING->value]);
     }
 }

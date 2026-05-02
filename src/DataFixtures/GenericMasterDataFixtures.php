@@ -29,7 +29,7 @@ class GenericMasterDataFixtures extends Fixture
     }
 
     /**
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
      *
      * @throws \RuntimeException
      */
@@ -104,6 +104,10 @@ class GenericMasterDataFixtures extends Fixture
 
         if ($entityType === 'orders' || str_contains($entityClass, 'Order')) {
             $options['uniqueFields'] = ['orderNumber'];
+        }
+
+        if ($entityType === 'crons' || str_contains($entityClass, 'Cron')) {
+            $options['uniqueFields'] = ['name'];
         }
 
         return $options;

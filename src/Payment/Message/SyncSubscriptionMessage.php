@@ -14,11 +14,17 @@ final readonly class SyncSubscriptionMessage implements AsyncMessageInterface
 {
     public function __construct(
         private int $subscriptionId,
+        private bool $forceSync = false,
     ) {
     }
 
     public function getSubscriptionId(): int
     {
         return $this->subscriptionId;
+    }
+
+    public function isForceSync(): bool
+    {
+        return $this->forceSync;
     }
 }

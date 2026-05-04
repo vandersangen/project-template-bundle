@@ -25,19 +25,20 @@ class MasterDataHydrator
 
     /**
      * Hydrate and persist entities from configuration.
+     * Creates new entities or updates existing ones based on unique fields.
      *
      * @param string $entityType The entity type (e.g., 'users', 'orders').
      * @param array<int, array<string, mixed>> $items      Configuration items with 'class' property.
      * @param array<string, mixed> $options    Hydration options (e.g., uniqueFields, passwordField).
      * @param bool $flush      Whether to flush changes immediately (default: false).
      *
-     * @return int Number of entities created.
+     * @return int Number of entities created or updated.
      *
      * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      */
     public function hydrateAndPersist(string $entityType, array $items, array $options = [], bool $flush = false): int
     {
-        $created = 0;
+        $affected = 0;
 
         foreach ($items as $itemData) {
             if (!isset($itemData['class'])) {
@@ -50,12 +51,26 @@ class MasterDataHydrator
                 continue;
             }
 
-            // Check if entity already exists
-            if ($this->entityExists($entityClass, $itemData, $options)) {
+            $existing = $this->findExistingEntity($entityClass, $itemData, $options);
+
+            if ($existing !== null) {
+                // Update existing entity fields
+                $this->applyFields($existing, $itemData, $options, false);
+                $this->objectManager->persist($existing);
+
+                // Register in reference registry so resolveRelationships can find it
+                if (isset($itemData['cid'])) {
+                    $this->referenceRegistry->registerByCid($entityType, $itemData['cid'], $existing);
+                }
+                if (isset($itemData['guid'])) {
+                    $this->referenceRegistry->registerByGuid($itemData['guid'], $existing);
+                }
+
+                $affected++;
                 continue;
             }
 
-            // Create and hydrate entity (without relationships first)
+            // Create and hydrate new entity (without relationships first)
             $entity = $this->hydrateEntity($entityClass, $itemData, $options, false);
 
             if ($entity !== null) {
@@ -69,15 +84,15 @@ class MasterDataHydrator
                     $this->referenceRegistry->registerByGuid($itemData['guid'], $entity);
                 }
 
-                $created++;
+                $affected++;
             }
         }
 
-        if ($flush && $created > 0) {
+        if ($flush && $affected > 0) {
             $this->objectManager->flush();
         }
 
-        return $created;
+        return $affected;
     }
 
     /**
@@ -111,19 +126,17 @@ class MasterDataHydrator
     }
 
     /**
-     * Check if entity already exists based on unique fields.
+     * Find an existing entity based on unique fields, or return null if not found.
      */
-    private function entityExists(string $entityClass, array $itemData, array $options): bool
+    private function findExistingEntity(string $entityClass, array $itemData, array $options): ?object
     {
         $uniqueFields = $options['uniqueFields'] ?? [];
 
         if (empty($uniqueFields)) {
-            return false;
+            return null;
         }
 
-        $repository = $this->objectManager->getRepository($entityClass);
         $criteria = [];
-
         foreach ($uniqueFields as $field) {
             if (isset($itemData[$field])) {
                 $criteria[$field] = $itemData[$field];
@@ -131,10 +144,10 @@ class MasterDataHydrator
         }
 
         if (empty($criteria)) {
-            return false;
+            return null;
         }
 
-        $qb = $repository->createQueryBuilder('e');
+        $qb = $this->objectManager->getRepository($entityClass)->createQueryBuilder('e');
         $index = 0;
 
         foreach ($criteria as $field => $value) {
@@ -144,7 +157,7 @@ class MasterDataHydrator
             $index++;
         }
 
-        return $qb->getQuery()->getOneOrNullResult() !== null;
+        return $qb->getQuery()->getOneOrNullResult();
     }
 
     /**
@@ -156,8 +169,6 @@ class MasterDataHydrator
      * @param bool $includeRelationships Whether to process relationship references.
      *
      * @return object|null The hydrated entity or null on failure.
-     *
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      */
     private function hydrateEntity(
         string $entityClass,
@@ -167,37 +178,44 @@ class MasterDataHydrator
     ): ?object {
         try {
             $entity = new $entityClass();
-
-            foreach ($itemData as $property => $value) {
-                // Skip special properties
-                if (in_array($property, ['class', 'cid', 'guid'], true)) {
-                    continue;
-                }
-
-                // Skip relationships if not including them
-                if (!$includeRelationships && is_array($value) && (isset($value['cid']) || isset($value['guid']))) {
-                    continue;
-                }
-
-                // Handle password hashing
-                if ($property === ($options['passwordField'] ?? 'password')
-                    && $this->passwordHasher !== null
-                    && $entity instanceof PasswordAuthenticatedUserInterface
-                ) {
-                    $value = $this->passwordHasher->hashPassword($entity, $value);
-                }
-
-                // Set property using setter method
-                $setter = 'set' . ucfirst((string) $property);
-                if (method_exists($entity, $setter)) {
-                    $entity->$setter($value);
-                }
-            }
-
+            $this->applyFields($entity, $itemData, $options, $includeRelationships);
             return $entity;
         } catch (\Throwable) {
-            // Log error or handle gracefully
             return null;
+        }
+    }
+
+    /**
+     * Apply scalar fields from configuration data onto an entity (new or existing).
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
+     */
+    private function applyFields(
+        object $entity,
+        array $itemData,
+        array $options,
+        bool $includeRelationships = true
+    ): void {
+        foreach ($itemData as $property => $value) {
+            if (in_array($property, ['class', 'cid', 'guid'], true)) {
+                continue;
+            }
+
+            if (!$includeRelationships && is_array($value) && (isset($value['cid']) || isset($value['guid']))) {
+                continue;
+            }
+
+            if ($property === ($options['passwordField'] ?? 'password')
+                && $this->passwordHasher !== null
+                && $entity instanceof PasswordAuthenticatedUserInterface
+            ) {
+                $value = $this->passwordHasher->hashPassword($entity, $value);
+            }
+
+            $setter = 'set' . ucfirst((string) $property);
+            if (method_exists($entity, $setter)) {
+                $entity->$setter($value);
+            }
         }
     }
 

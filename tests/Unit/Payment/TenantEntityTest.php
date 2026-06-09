@@ -30,8 +30,8 @@ class TenantEntityTest extends TestCase
             ->setCompanyName('Acme BV')
             ->setVatNumber('NL123456789B01')
             ->setBillingEmail('billing@acme.com')
-            ->setBillingAddressLine1('Hoofdstraat 1')
-            ->setBillingAddressLine2('2e verdieping')
+            ->setBillingStreet('Hoofdstraat')
+            ->setBillingHouseNumber('1')
             ->setBillingCity('Amsterdam')
             ->setBillingPostalCode('1234AB')
             ->setBillingCountry('NL')
@@ -41,8 +41,8 @@ class TenantEntityTest extends TestCase
         $this->assertSame('Acme BV', $tenant->getCompanyName());
         $this->assertSame('NL123456789B01', $tenant->getVatNumber());
         $this->assertSame('billing@acme.com', $tenant->getBillingEmail());
-        $this->assertSame('Hoofdstraat 1', $tenant->getBillingAddressLine1());
-        $this->assertSame('2e verdieping', $tenant->getBillingAddressLine2());
+        $this->assertSame('Hoofdstraat', $tenant->getBillingStreet());
+        $this->assertSame('1', $tenant->getBillingHouseNumber());
         $this->assertSame('Amsterdam', $tenant->getBillingCity());
         $this->assertSame('1234AB', $tenant->getBillingPostalCode());
         $this->assertSame('NL', $tenant->getBillingCountry());
@@ -61,8 +61,8 @@ class TenantEntityTest extends TestCase
             'companyName',
             'vatNumber',
             'billingEmail',
-            'billingAddressLine1',
-            'billingAddressLine2',
+            'billingStreet',
+            'billingHouseNumber',
             'billingCity',
             'billingPostalCode',
             'billingCountry',

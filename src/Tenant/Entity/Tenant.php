@@ -30,10 +30,10 @@ class Tenant
     private ?string $billingEmail = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    private ?string $billingAddressLine1 = null;
+    private ?string $billingStreet = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $billingAddressLine2 = null;
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $billingHouseNumber = null;
 
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $billingCity = null;
@@ -108,25 +108,25 @@ class Tenant
         return $this;
     }
 
-    public function getBillingAddressLine1(): ?string
+    public function getBillingStreet(): ?string
     {
-        return $this->billingAddressLine1;
+        return $this->billingStreet;
     }
 
-    public function setBillingAddressLine1(?string $billingAddressLine1): static
+    public function setBillingStreet(?string $billingStreet): static
     {
-        $this->billingAddressLine1 = $billingAddressLine1;
+        $this->billingStreet = $billingStreet;
         return $this;
     }
 
-    public function getBillingAddressLine2(): ?string
+    public function getBillingHouseNumber(): ?string
     {
-        return $this->billingAddressLine2;
+        return $this->billingHouseNumber;
     }
 
-    public function setBillingAddressLine2(?string $billingAddressLine2): static
+    public function setBillingHouseNumber(?string $billingHouseNumber): static
     {
-        $this->billingAddressLine2 = $billingAddressLine2;
+        $this->billingHouseNumber = $billingHouseNumber;
         return $this;
     }
 
@@ -204,8 +204,8 @@ class Tenant
             'companyName' => $this->companyName,
             'vatNumber' => $this->vatNumber,
             'billingEmail' => $this->billingEmail,
-            'billingAddressLine1' => $this->billingAddressLine1,
-            'billingAddressLine2' => $this->billingAddressLine2,
+            'billingStreet' => $this->billingStreet,
+            'billingHouseNumber' => $this->billingHouseNumber,
             'billingCity' => $this->billingCity,
             'billingPostalCode' => $this->billingPostalCode,
             'billingCountry' => $this->billingCountry,

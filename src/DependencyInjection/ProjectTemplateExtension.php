@@ -119,6 +119,13 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
                         'prefix' => 'VanDerSangen\\ProjectTemplateBundle\\Payment\\Entity',
                         'alias' => 'ProjectTemplateBundlePayment',
                     ],
+                    'ProjectTemplateBundleInvoice' => [
+                        'type' => 'attribute',
+                        'is_bundle' => false,
+                        'dir' => $bundleDir . '/Invoice/Entity',
+                        'prefix' => 'VanDerSangen\\ProjectTemplateBundle\\Invoice\\Entity',
+                        'alias' => 'ProjectTemplateBundleInvoice',
+                    ],
                 ],
             ],
         ]);

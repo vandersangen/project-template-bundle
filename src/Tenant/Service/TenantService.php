@@ -80,8 +80,8 @@ class TenantService
         ?string $companyName = null,
         ?string $vatNumber = null,
         ?string $billingEmail = null,
-        ?string $billingAddressLine1 = null,
-        ?string $billingAddressLine2 = null,
+        ?string $billingStreet = null,
+        ?string $billingHouseNumber = null,
         ?string $billingCity = null,
         ?string $billingPostalCode = null,
         ?string $billingCountry = null,
@@ -95,11 +95,11 @@ class TenantService
         if ($billingEmail !== null) {
             $tenant->setBillingEmail($billingEmail);
         }
-        if ($billingAddressLine1 !== null) {
-            $tenant->setBillingAddressLine1($billingAddressLine1);
+        if ($billingStreet !== null) {
+            $tenant->setBillingStreet($billingStreet);
         }
-        if ($billingAddressLine2 !== null) {
-            $tenant->setBillingAddressLine2($billingAddressLine2);
+        if ($billingHouseNumber !== null) {
+            $tenant->setBillingHouseNumber($billingHouseNumber);
         }
         if ($billingCity !== null) {
             $tenant->setBillingCity($billingCity);

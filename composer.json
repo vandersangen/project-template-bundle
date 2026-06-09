@@ -23,6 +23,7 @@
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "doctrine/orm": "^3.6",
         "dragonmantank/cron-expression": "^3.3",
+        "knplabs/knp-snappy": "^1.5",
         "lexik/jwt-authentication-bundle": "^3.2",
         "symfony/config": "7.4.*",
         "symfony/console": "7.4.*",

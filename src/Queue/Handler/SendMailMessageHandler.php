@@ -54,6 +54,33 @@ class SendMailMessageHandler implements AsyncMessageHandlerInterface
             }
         }
 
+        foreach ($mail->getAttachments() ?? [] as $attachment) {
+            // Inline (base64-encoded) content takes precedence over a path so
+            // attachments can live in the database without touching the disk.
+            $content = $attachment['content'] ?? null;
+            if (is_string($content) && $content !== '') {
+                $decoded = base64_decode($content, true);
+                if ($decoded !== false) {
+                    $email->attach(
+                        $decoded,
+                        $attachment['filename'] ?? null,
+                        $attachment['mime'] ?? null,
+                    );
+                }
+                continue;
+            }
+
+            $path = $attachment['path'] ?? null;
+            if (!is_string($path) || !is_file($path)) {
+                continue;
+            }
+            $email->attachFromPath(
+                $path,
+                $attachment['filename'] ?? null,
+                $attachment['mime'] ?? null,
+            );
+        }
+
         $this->mailer->send($email);
 
         $mail->setStatus(MailStatus::SENT);

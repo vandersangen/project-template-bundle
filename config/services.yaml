@@ -24,6 +24,9 @@ services:
             - '../src/Payment/Enum/'
             - '../src/Payment/Event/'
             - '../src/Payment/Message/'
+            - '../src/Invoice/Entity/'
+            - '../src/Invoice/Enum/'
+            - '../src/Invoice/Dto/'
 
     # Controllers
     VanDerSangen\ProjectTemplateBundle\Api\Controller\:
@@ -134,3 +137,9 @@ services:
     VanDerSangen\ProjectTemplateBundle\Payment\Handler\SyncPaymentMessageHandler:
         tags:
             - { name: messenger.message_handler }
+
+    # Invoice Module — PDF renderer. Default: Gotenberg (headless Chromium sidecar,
+    # HTTP API, k8s-friendly). SnappyPdfRenderer remains available for images that
+    # ship the wkhtmltopdf binary; switch the alias to use it instead.
+    VanDerSangen\ProjectTemplateBundle\Invoice\Service\PdfRendererInterface:
+        '@VanDerSangen\ProjectTemplateBundle\Invoice\Service\GotenbergPdfRenderer'

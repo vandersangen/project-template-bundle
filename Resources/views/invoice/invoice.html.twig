@@ -1,0 +1,122 @@
+{% set accent = invoice.accentColor|default('#2c3e50') %}
+{% set issuer = invoice.issuer %}
+{% set customer = invoice.customer %}
+{% set cur = invoice.currency == 'EUR' ? '€' : invoice.currency ~ ' ' %}
+{% macro money(cents, cur) %}{{ cur }}{{ (cents / 100)|number_format(2, ',', '.') }}{% endmacro %}
+{% import _self as fmt %}
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>Factuur {{ invoice.number }}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'DejaVu Sans', Arial, sans-serif; color: #2c3e50; font-size: 13px; margin: 0; }
+        .wrap { padding: 8px 4px; }
+        .top { width: 100%; }
+        .top td { vertical-align: top; }
+        .logo img { max-height: 70px; max-width: 220px; }
+        h1 { color: {{ accent }}; font-size: 26px; margin: 0 0 4px; }
+        .muted { color: #7f8c8d; }
+        .meta { text-align: right; }
+        .parties { width: 100%; margin-top: 28px; }
+        .parties td { vertical-align: top; width: 50%; padding-right: 16px; }
+        .label { text-transform: uppercase; font-size: 10px; letter-spacing: .5px; color: #95a5a6; margin-bottom: 4px; }
+        table.lines { width: 100%; border-collapse: collapse; margin-top: 28px; }
+        table.lines th { background: {{ accent }}; color: #fff; text-align: left; padding: 8px; font-size: 11px; }
+        table.lines th.num, table.lines td.num { text-align: right; }
+        table.lines td { padding: 8px; border-bottom: 1px solid #ecf0f1; }
+        .totals { width: 40%; margin-left: 60%; margin-top: 12px; border-collapse: collapse; }
+        .totals td { padding: 6px 8px; }
+        .totals td.num { text-align: right; }
+        .totals tr.grand td { border-top: 2px solid {{ accent }}; font-weight: bold; font-size: 15px; }
+        .footer { margin-top: 36px; border-top: 1px solid #ecf0f1; padding-top: 12px; font-size: 11px; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <table class="top">
+        <tr>
+            <td class="logo">
+                {% if issuer.logoPath %}<img src="{{ issuer.logoPath }}" alt="logo">{% else %}
+                    <strong style="font-size:18px">{{ issuer.companyName ?? issuer.name }}</strong>
+                {% endif %}
+            </td>
+            <td class="meta">
+                <h1>Factuur</h1>
+                <div><strong>{{ invoice.number }}</strong></div>
+                <div class="muted">Datum: {{ invoice.issuedAt|date('d-m-Y') }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="parties">
+        <tr>
+            <td>
+                <div class="label">Van</div>
+                <div><strong>{{ issuer.companyName ?? issuer.name }}</strong></div>
+                {% if issuer.street or issuer.houseNumber %}<div>{{ issuer.street }} {{ issuer.houseNumber }}</div>{% endif %}
+                {% if issuer.postalCode or issuer.city %}<div>{{ issuer.postalCode }} {{ issuer.city }}</div>{% endif %}
+                {% if issuer.country %}<div>{{ issuer.country }}</div>{% endif %}
+                {% if issuer.vatNumber %}<div class="muted">BTW: {{ issuer.vatNumber }}</div>{% endif %}
+                {% if issuer.cocNumber %}<div class="muted">KvK: {{ issuer.cocNumber }}</div>{% endif %}
+                {% if issuer.email %}<div class="muted">{{ issuer.email }}</div>{% endif %}
+            </td>
+            <td>
+                <div class="label">Aan</div>
+                <div><strong>{{ customer.companyName ?? customer.name ?? 'Klant' }}</strong></div>
+                {% if customer.name and customer.companyName %}<div>{{ customer.name }}</div>{% endif %}
+                {% if customer.street or customer.houseNumber %}<div>{{ customer.street }} {{ customer.houseNumber }}</div>{% endif %}
+                {% if customer.postalCode or customer.city %}<div>{{ customer.postalCode }} {{ customer.city }}</div>{% endif %}
+                {% if customer.country %}<div>{{ customer.country }}</div>{% endif %}
+                {% if customer.vatNumber %}<div class="muted">BTW: {{ customer.vatNumber }}</div>{% endif %}
+                {% if customer.email %}<div class="muted">{{ customer.email }}</div>{% endif %}
+            </td>
+        </tr>
+    </table>
+
+    <table class="lines">
+        <thead>
+            <tr>
+                <th>Omschrijving</th>
+                <th class="num">Aantal</th>
+                <th class="num">Prijs</th>
+                <th class="num">BTW</th>
+                <th class="num">Bedrag</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in invoice.items %}
+                <tr>
+                    <td>{{ item.description }}</td>
+                    <td class="num">{{ item.quantity }}</td>
+                    <td class="num">{{ fmt.money(item.netCents, cur) }}</td>
+                    <td class="num">{{ (item.vatRate / 100)|number_format(0) }}%</td>
+                    <td class="num">{{ fmt.money(item.grossCents, cur) }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <table class="totals">
+        <tr>
+            <td>Subtotaal (excl. BTW)</td>
+            <td class="num">{{ fmt.money(invoice.netCents, cur) }}</td>
+        </tr>
+        <tr>
+            <td>BTW ({{ (invoice.vatRate / 100)|number_format(0) }}%)</td>
+            <td class="num">{{ fmt.money(invoice.vatCents, cur) }}</td>
+        </tr>
+        <tr class="grand">
+            <td>Totaal</td>
+            <td class="num">{{ fmt.money(invoice.grossCents, cur) }}</td>
+        </tr>
+    </table>
+
+    <div class="footer">
+        {% if issuer.iban %}<div>Betaling reeds voldaan. IBAN: {{ issuer.iban }}</div>{% endif %}
+        {% if invoice.footerText %}<div>{{ invoice.footerText|nl2br }}</div>{% endif %}
+    </div>
+</div>
+</body>
+</html>

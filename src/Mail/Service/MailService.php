@@ -20,6 +20,15 @@ class MailService
     ) {
     }
 
+    /**
+     * @param string                                                                                    $title
+     * @param string                                                                                    $body
+     * @param array<int, string>                                                                        $receiver
+     * @param string|null                                                                               $sender
+     * @param array<int, string>|null                                                                   $cc
+     * @param array<int, string>|null                                                                   $bcc
+     * @param array<int, array{path?: string, content?: string, filename: string, mime?: string}>|null $attachments
+     */
     public function createMail(
         string $title,
         string $body,
@@ -27,6 +36,7 @@ class MailService
         ?string $sender = null,
         ?array $cc = null,
         ?array $bcc = null,
+        ?array $attachments = null,
     ): Mail {
         $mail = new Mail();
         $mail->setSender($sender ?? $this->senderEmail);
@@ -35,6 +45,7 @@ class MailService
         $mail->setBcc($bcc);
         $mail->setTitle($title);
         $mail->setBody($body);
+        $mail->setAttachments($attachments);
         $mail->setStatus(MailStatus::PENDING);
         $this->mailRepository->save($mail, true);
         return $mail;
@@ -73,6 +84,15 @@ class MailService
         $this->queueService->dispatch(new SendMailMessage($mail->getId()));
     }
 
+    /**
+     * @param string                                                                                    $title
+     * @param string                                                                                    $body
+     * @param array<int, string>                                                                        $receiver
+     * @param string|null                                                                               $sender
+     * @param array<int, string>|null                                                                   $cc
+     * @param array<int, string>|null                                                                   $bcc
+     * @param array<int, array{path?: string, content?: string, filename: string, mime?: string}>|null $attachments
+     */
     public function createAndSend(
         string $title,
         string $body,
@@ -80,8 +100,9 @@ class MailService
         ?string $sender = null,
         ?array $cc = null,
         ?array $bcc = null,
+        ?array $attachments = null,
     ): Mail {
-        $mail = $this->createMail($title, $body, $receiver, $sender, $cc, $bcc);
+        $mail = $this->createMail($title, $body, $receiver, $sender, $cc, $bcc, $attachments);
         $this->send($mail);
         return $mail;
     }

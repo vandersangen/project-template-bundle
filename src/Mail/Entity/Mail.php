@@ -31,6 +31,13 @@ class Mail
     private ?string $body = null;
     #[ORM\Column(length: 20)]
     private string $status = 'pending';
+    /**
+     * Each entry: ['path' => string, 'filename' => string, 'mime' => string].
+     *
+     * @var array<int, array{path: string, filename: string, mime?: string}>|null
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $attachments = null;
     #[ORM\Column]
     private ?DateTimeImmutable $createdAt = null;
     #[ORM\Column(nullable: true)]
@@ -123,6 +130,23 @@ class Mail
         return $this;
     }
 
+    /**
+     * @return array<int, array{path?: string, content?: string, filename: string, mime?: string}>|null
+     */
+    public function getAttachments(): ?array
+    {
+        return $this->attachments;
+    }
+
+    /**
+     * @param array<int, array{path?: string, content?: string, filename: string, mime?: string}>|null $attachments
+     */
+    public function setAttachments(?array $attachments): static
+    {
+        $this->attachments = $attachments;
+        return $this;
+    }
+
     public function getCreatedAt(): ?DateTimeImmutable
     {
         return $this->createdAt;
@@ -156,6 +180,7 @@ class Mail
             'title' => $this->title,
             'body' => $this->body,
             'status' => $this->status,
+            'attachments' => $this->attachments,
             'createdAt' => $this->createdAt?->format('c'),
             'sentAt' => $this->sentAt?->format('c'),
         ];

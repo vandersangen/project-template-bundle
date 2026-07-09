@@ -27,6 +27,9 @@ services:
             - '../src/Invoice/Entity/'
             - '../src/Invoice/Enum/'
             - '../src/Invoice/Dto/'
+            - '../src/Shopify/Entity/'
+            - '../src/Shopify/Enum/'
+            - '../src/Shopify/Exception/'
 
     # Controllers
     VanDerSangen\ProjectTemplateBundle\Api\Controller\:
@@ -55,6 +58,10 @@ services:
 
     VanDerSangen\ProjectTemplateBundle\Tenant\Controller\:
         resource: '../src/Tenant/Controller/'
+        tags: ['controller.service_arguments']
+
+    VanDerSangen\ProjectTemplateBundle\Shopify\Controller\:
+        resource: '../src/Shopify/Controller/'
         tags: ['controller.service_arguments']
 
     VanDerSangen\ProjectTemplateBundle\Routing\ProjectTemplateRouteLoader:
@@ -137,6 +144,17 @@ services:
     VanDerSangen\ProjectTemplateBundle\Payment\Handler\SyncPaymentMessageHandler:
         tags:
             - { name: messenger.message_handler }
+
+    # Shared credential encryption (used for stored third-party API tokens)
+    VanDerSangen\ProjectTemplateBundle\Shared\Service\CredentialEncryptor:
+        arguments:
+            $secret: '%project_template.encryption_secret%'
+
+    # Shopify Module — Admin API client for merchant-created custom apps
+    VanDerSangen\ProjectTemplateBundle\Shopify\Client\ShopifyApiClient:
+        arguments:
+            $httpClient: '@http_client'
+            $apiVersion: '%project_template.shopify.api_version%'
 
     # Invoice Module — PDF renderer. Default: Gotenberg (headless Chromium sidecar,
     # HTTP API, k8s-friendly). SnappyPdfRenderer remains available for images that

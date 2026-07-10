@@ -40,7 +40,11 @@ class ShopifyApiClient
     /**
      * GET an Admin REST resource, e.g. "products.json" or "orders/123.json".
      *
-     * @param array<string, mixed> $query
+     * @param string               $shopDomain  Full myshopify.com shop domain.
+     * @param string               $accessToken Admin API access token.
+     * @param string               $resource    REST resource path, e.g. "products.json".
+     * @param array<string, mixed> $query       Query string parameters.
+     *
      * @return array<string, mixed>
      */
     public function get(
@@ -55,7 +59,11 @@ class ShopifyApiClient
     /**
      * POST to an Admin REST resource.
      *
-     * @param array<string, mixed> $body
+     * @param string               $shopDomain  Full myshopify.com shop domain.
+     * @param string               $accessToken Admin API access token.
+     * @param string               $resource    REST resource path, e.g. "products.json".
+     * @param array<string, mixed> $body        JSON request body.
+     *
      * @return array<string, mixed>
      */
     public function post(
@@ -70,7 +78,11 @@ class ShopifyApiClient
     /**
      * Executes an Admin GraphQL query.
      *
-     * @param array<string, mixed> $variables
+     * @param string               $shopDomain  Full myshopify.com shop domain.
+     * @param string               $accessToken Admin API access token.
+     * @param string               $query       GraphQL query or mutation.
+     * @param array<string, mixed> $variables   GraphQL variables.
+     *
      * @return array<string, mixed>
      */
     public function graphql(
@@ -85,8 +97,15 @@ class ShopifyApiClient
     }
 
     /**
-     * @param array<string, mixed> $options
+     * @param string               $method      HTTP method.
+     * @param string               $shopDomain  Full myshopify.com shop domain.
+     * @param string               $accessToken Admin API access token.
+     * @param string               $resource    REST resource path.
+     * @param array<string, mixed> $options     Extra HttpClient request options.
+     *
      * @return array<string, mixed>
+     *
+     * @throws ShopifyApiException When Shopify returns an error or is unreachable.
      */
     private function request(
         string $method,
@@ -124,7 +143,8 @@ class ShopifyApiClient
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param array<string, mixed> $data       Decoded Shopify error response body.
+     * @param int                  $statusCode HTTP status code of the response.
      */
     private function extractErrorMessage(array $data, int $statusCode): string
     {

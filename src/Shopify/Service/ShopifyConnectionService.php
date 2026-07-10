@@ -33,7 +33,7 @@ class ShopifyConnectionService
      *
      * Accepts "my-store", "my-store.myshopify.com" or "https://my-store.myshopify.com/".
      *
-     * @throws InvalidArgumentException When the input is not a valid shop domain
+     * @throws InvalidArgumentException When the input is not a valid shop domain.
      */
     public static function normalizeShopDomain(string $input): string
     {
@@ -58,8 +58,8 @@ class ShopifyConnectionService
      * Verifies the credentials against the Shopify Admin API and stores
      * (or updates) the tenant's connection with the token encrypted at rest.
      *
-     * @throws InvalidArgumentException When the shop domain or token is invalid input
-     * @throws ShopifyApiException When Shopify rejects the credentials or is unreachable
+     * @throws InvalidArgumentException When the shop domain or token is invalid input.
+     * @throws ShopifyApiException When Shopify rejects the credentials or is unreachable.
      */
     public function connect(
         int $tenantId,

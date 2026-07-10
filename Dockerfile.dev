@@ -13,16 +13,13 @@ RUN set -eux; \
     apt clean; \
     rm -rf /var/lib/apt/lists/*
 
-# Install Xdebug for debugging
-RUN pecl install xdebug \
-    && docker-php-ext-enable xdebug
+# Xdebug (debugging) and PCOV (fast coverage) via php-extension-installer:
+# the PECL REST channel is discontinued, so `pecl install` no longer works.
+COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
+RUN install-php-extensions xdebug pcov
 
 # Create initial xdebug config (disabled by default for performance)
 RUN echo ";zend_extension=xdebug.so" > /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
-
-# Install PCOV for fast code coverage
-RUN pecl install pcov \
-    && docker-php-ext-enable pcov
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

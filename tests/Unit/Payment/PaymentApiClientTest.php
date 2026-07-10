@@ -158,6 +158,46 @@ class PaymentApiClientTest extends TestCase
         $this->assertSame(999, $body['amountCents']);
         $this->assertSame('monthly', $body['interval']);
         $this->assertSame('Premium', $body['description']);
+        $this->assertArrayNotHasKey('customer', $body);
+    }
+
+    public function testCreateSubscriptionSendsCustomerDetails(): void
+    {
+        $responseData = [
+            'id' => 43,
+            'provider' => 'mollie',
+            'status' => 'pending',
+            'checkoutUrl' => 'https://checkout.mollie.com/sub',
+            'amountCents' => 999,
+            'currency' => 'EUR',
+            'interval' => 'monthly',
+        ];
+        $mock = new MockResponse(json_encode($responseData), [
+            'http_code' => 201,
+            'response_headers' => ['Content-Type: application/json'],
+        ]);
+        $client = $this->makeClient($mock);
+        $customer = [
+            'companyName' => 'Acme B.V.',
+            'email' => 'billing@acme.example',
+            'street' => 'Hoofdstraat 1',
+            'postalCode' => '1234 AB',
+            'city' => 'Amsterdam',
+            'country' => 'Nederland',
+        ];
+        $client->createSubscription(
+            'mollie',
+            'tenant-5',
+            999,
+            'https://return.url',
+            'monthly',
+            'EUR',
+            'Premium',
+            customer: $customer,
+        );
+
+        $body = json_decode((string) $mock->getRequestOptions()['body'], true);
+        $this->assertSame($customer, $body['customer']);
     }
 
     public function testGetSubscription(): void

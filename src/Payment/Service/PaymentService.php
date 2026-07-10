@@ -44,6 +44,21 @@ class PaymentService
     /**
      * Create a recurring subscription via the payment-api and persist it locally.
      * Returns the Subscription with the checkout URL to redirect the user to.
+     *
+     * @param int                        $tenantId    Tenant the subscription belongs to.
+     * @param int                        $userId      User who started the subscription.
+     * @param PaymentProvider            $provider    Payment provider.
+     * @param int                        $amountCents Recurring amount in cents.
+     * @param SubscriptionInterval       $interval    Billing interval.
+     * @param string                     $returnUrl   URL to redirect to after checkout.
+     * @param string                     $currency    Three-letter ISO currency code.
+     * @param string|null                $description Subscription description.
+     * @param string|null                $cancelUrl   URL to redirect to on cancel.
+     * @param int                        $billingDay  Day of the month to bill on.
+     * @param array<string, string>|null $customer    Customer billing details used on generated
+     *                                                invoices (name, companyName, email, vatNumber,
+     *                                                cocNumber, street, houseNumber, postalCode,
+     *                                                city, country).
      */
     public function createSubscription(
         int $tenantId,
@@ -56,6 +71,7 @@ class PaymentService
         ?string $description = null,
         ?string $cancelUrl = null,
         int $billingDay = 1,
+        ?array $customer = null,
     ): Subscription {
         $toolUserReference = sprintf('tenant-%d', $tenantId);
 
@@ -69,6 +85,7 @@ class PaymentService
             description: $description,
             cancelUrl: $cancelUrl,
             billingDay: $billingDay,
+            customer: $customer,
         );
 
         $subscription = new Subscription();

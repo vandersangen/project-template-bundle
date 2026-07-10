@@ -69,6 +69,20 @@ class PaymentApiClient
     }
 
     /**
+     * @param string                     $provider          Payment provider (stripe or mollie).
+     * @param string                     $toolUserReference Tool-internal user identifier.
+     * @param int                        $amountCents       Recurring amount in cents.
+     * @param string                     $returnUrl         URL to redirect to after checkout.
+     * @param string                     $interval          Billing interval.
+     * @param string                     $currency          Three-letter ISO currency code.
+     * @param string|null                $description       Subscription description.
+     * @param string|null                $cancelUrl         URL to redirect to on cancel.
+     * @param int                        $billingDay        Day of the month to bill on.
+     * @param array<string, string>|null $customer          Customer billing details used on
+     *                                                      generated invoices (name, companyName,
+     *                                                      email, vatNumber, cocNumber, street,
+     *                                                      houseNumber, postalCode, city, country).
+     *
      * @return array{
      *     id: int, provider: string, status: string, checkoutUrl: string,
      *     amountCents: int, currency: string, interval: string, nextBillingDate: string
@@ -84,6 +98,7 @@ class PaymentApiClient
         ?string $description = null,
         ?string $cancelUrl = null,
         int $billingDay = 1,
+        ?array $customer = null,
     ): array {
         $body = [
             'provider' => $provider,
@@ -100,6 +115,9 @@ class PaymentApiClient
         }
         if ($cancelUrl !== null) {
             $body['cancelUrl'] = $cancelUrl;
+        }
+        if ($customer !== null && $customer !== []) {
+            $body['customer'] = $customer;
         }
 
         return $this->post('/api/v1/subscriptions', $body);

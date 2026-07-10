@@ -1,0 +1,40 @@
+# Uitgevoerde Doctrine-migraties zijn onveranderlijk: wie een al-gemergde
+# migratie bewerkt of verwijdert, laat bestaande databases stil uit de pas
+# lopen met verse databases (zie de facturatie-storing van juni/juli 2026).
+# Deze guard staat alleen TOEVOEGINGEN onder migrations/ toe.
+name: Migration guard
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  migration-guard:
+    name: Bestaande migraties onveranderd
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Blokkeer wijzigingen aan bestaande migraties
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+            BASE=$(git rev-parse HEAD~1 2>/dev/null || echo "")
+          fi
+          if [ -z "$BASE" ]; then
+            echo "Geen basis-commit bepaalbaar; guard overgeslagen."
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only --diff-filter=MDR "$BASE" HEAD -- 'migrations/' || true)
+          if [ -n "$CHANGED" ]; then
+            echo "::error::Bestaande migraties gewijzigd of verwijderd. Uitgevoerde migraties zijn onveranderlijk — voeg altijd een NIEUWE migratie toe."
+            echo "$CHANGED"
+            exit 1
+          fi
+          echo "OK: geen bestaande migraties aangeraakt."

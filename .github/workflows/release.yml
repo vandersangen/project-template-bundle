@@ -1,0 +1,55 @@
+# Release-flow: tag pas ná groene tests op exact deze commit.
+# Handmatig starten (Actions → Release → Run workflow) met het versienummer;
+# de workflow draait de volledige suite en zet daarna pas de tag (→ Packagist).
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versienummer, bijv. 0.8.9 (zonder v-prefix)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Test en tag ${{ inputs.version }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Valideer versienummer
+        run: |
+          if ! echo "${{ inputs.version }}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Ongeldig versienummer '${{ inputs.version }}' — gebruik x.y.z"; exit 1
+          fi
+          if git ls-remote --tags origin "refs/tags/${{ inputs.version }}" | grep -q .; then
+            echo "::error::Tag ${{ inputs.version }} bestaat al"; exit 1
+          fi
+
+      - name: Setup CI environment
+        run: make ci-setup
+
+      - name: Run tests
+        run: make ci-test
+
+      - name: Code style
+        run: docker compose -f docker-compose-dev.yaml exec -T php ./vendor/bin/phpcs -s
+
+      - name: Tag en push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ inputs.version }}" -m "Release ${{ inputs.version }}"
+          git push origin "${{ inputs.version }}"
+
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ inputs.version }}" --title "${{ inputs.version }}" \
+            --notes "Zie CHANGELOG.md voor de wijzigingen in deze release."

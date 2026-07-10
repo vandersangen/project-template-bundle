@@ -58,6 +58,12 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
         $container->setParameter('project_template.payment.api_token', $config['payment']['api_token']);
         $container->setParameter('project_template.payment.webhook_secret', $config['payment']['webhook_secret']);
 
+        // Shopify module parameters
+        $container->setParameter('project_template.shopify.api_version', $config['shopify']['api_version']);
+
+        // Shared credential encryption secret
+        $container->setParameter('project_template.encryption_secret', $config['encryption_secret']);
+
         // Store bundle directory for routing
         $container->setParameter('project_template.bundle_dir', dirname(__DIR__));
         $container->setParameter('project_template.bundle_root', dirname(__DIR__, 2));
@@ -125,6 +131,13 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
                         'dir' => $bundleDir . '/Invoice/Entity',
                         'prefix' => 'VanDerSangen\\ProjectTemplateBundle\\Invoice\\Entity',
                         'alias' => 'ProjectTemplateBundleInvoice',
+                    ],
+                    'ProjectTemplateBundleShopify' => [
+                        'type' => 'attribute',
+                        'is_bundle' => false,
+                        'dir' => $bundleDir . '/Shopify/Entity',
+                        'prefix' => 'VanDerSangen\\ProjectTemplateBundle\\Shopify\\Entity',
+                        'alias' => 'ProjectTemplateBundleShopify',
                     ],
                 ],
             ],

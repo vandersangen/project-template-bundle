@@ -40,3 +40,9 @@ tenant_controllers:
         namespace: VanDerSangen\ProjectTemplateBundle\Tenant\Controller
     type: attribute
 
+
+shopify_controllers:
+    resource:
+        path: ../src/Shopify/Controller/
+        namespace: VanDerSangen\ProjectTemplateBundle\Shopify\Controller
+    type: attribute

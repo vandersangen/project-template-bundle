@@ -37,6 +37,19 @@ class Configuration implements ConfigurationInterface
                     ->end()
                 ->end()
             ->end()
+            ->arrayNode('shopify')
+                ->addDefaultsIfNotSet()
+                ->children()
+                    ->scalarNode('api_version')
+                        ->defaultValue('2026-01')
+                        ->info('Shopify Admin API version used for REST and GraphQL calls')
+                    ->end()
+                ->end()
+            ->end()
+            ->scalarNode('encryption_secret')
+                ->defaultValue('%env(APP_SECRET)%')
+                ->info('Secret used to encrypt stored third-party credentials at rest (defaults to APP_SECRET)')
+            ->end()
             ->end();
 
         return $treeBuilder;

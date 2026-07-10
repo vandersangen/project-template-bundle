@@ -10,3 +10,9 @@ services:
     # Allow tests to override services via $container->set(...)
     VanDerSangen\ProjectTemplateBundle\Payment\Service\WebhookHandler:
         public: true
+
+    VanDerSangen\ProjectTemplateBundle\Shopify\Client\ShopifyApiClient:
+        public: true
+        arguments:
+            $httpClient: '@http_client'
+            $apiVersion: '%project_template.shopify.api_version%'

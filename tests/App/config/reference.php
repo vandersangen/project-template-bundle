@@ -121,7 +121,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  * }
  * @psalm-type ServicesConfig = array{
  *     _defaults?: DefaultsType,
- *     _instanceof?: InstanceofType,
+ *     _instanceof?: array<class-string, InstanceofType>,
  *     ...<string, DefinitionType|AliasType|PrototypeType|StackType|ArgumentsType|null>
  * }
  * @psalm-type ExtensionType = array<string, mixed>
@@ -1336,6 +1336,10 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         api_token?: scalar|Param|null, // JWT token used to authenticate against the payment-api // Default: "%env(PAYMENT_API_TOKEN)%"
  *         webhook_secret?: scalar|Param|null, // Shared secret validated in X-Webhook-Secret header on incoming webhooks // Default: "%env(PAYMENT_WEBHOOK_SECRET)%"
  *     },
+ *     shopify?: array{
+ *         api_version?: scalar|Param|null, // Shopify Admin API version used for REST and GraphQL calls // Default: "2026-01"
+ *     },
+ *     encryption_secret?: scalar|Param|null, // Secret used to encrypt stored third-party credentials at rest (defaults to APP_SECRET) // Default: "%env(APP_SECRET)%"
  * }
  * @psalm-type TwigConfig = array{
  *     form_themes?: list<scalar|Param|null>,

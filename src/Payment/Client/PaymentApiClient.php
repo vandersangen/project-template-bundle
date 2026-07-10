@@ -162,6 +162,56 @@ class PaymentApiClient
         return $this->patch(sprintf('/api/v1/subscriptions/%d/cancel', $id), $body);
     }
 
+    /**
+     * Updates the customer billing details used on invoices for a subscription.
+     *
+     * @param int                   $id       Payment-api subscription id.
+     * @param array<string, string> $customer Customer billing details (name, companyName, email,
+     *                                        vatNumber, cocNumber, street, houseNumber,
+     *                                        postalCode, city, country).
+     *
+     * @return array{id: int, customer: array<string, string>|null}
+     */
+    public function updateSubscriptionCustomer(int $id, array $customer): array
+    {
+        return $this->patch(sprintf('/api/v1/subscriptions/%d/customer', $id), ['customer' => $customer]);
+    }
+
+    /**
+     * Invoices for one of the tool's own users.
+     *
+     * @param string $toolUserReference Tool-internal user identifier (e.g. "tenant-42").
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getInvoices(string $toolUserReference): array
+    {
+        return $this->get('/api/v1/invoices?toolUserReference=' . urlencode($toolUserReference));
+    }
+
+    /**
+     * Raw PDF bytes of an invoice; the payment-api enforces that the invoice
+     * belongs to the authenticated tool and the given tool user.
+     *
+     * @param int    $id                Invoice id.
+     * @param string $toolUserReference Tool-internal user identifier the invoice must belong to.
+     */
+    public function getInvoicePdf(int $id, string $toolUserReference): string
+    {
+        $response = $this->httpClient->request(
+            'GET',
+            sprintf(
+                '%s/api/v1/invoices/%d/pdf?toolUserReference=%s',
+                $this->baseUrl,
+                $id,
+                urlencode($toolUserReference),
+            ),
+            ['headers' => $this->buildHeaders()],
+        );
+
+        return $response->getContent();
+    }
+
     private function get(string $path): array
     {
         $response = $this->httpClient->request('GET', $this->baseUrl . $path, [

@@ -202,6 +202,47 @@ class PaymentService
     }
 
     /**
+     * Push updated customer billing details (used on invoices) to the payment-api.
+     *
+     * @param Subscription          $subscription Locally stored subscription.
+     * @param array<string, string> $customer     Customer billing details (name, companyName,
+     *                                            email, vatNumber, cocNumber, street,
+     *                                            houseNumber, postalCode, city, country).
+     */
+    public function updateSubscriptionCustomer(Subscription $subscription, array $customer): void
+    {
+        if ($subscription->getPaymentApiSubscriptionId() === null || $customer === []) {
+            return;
+        }
+
+        $this->apiClient->updateSubscriptionCustomer($subscription->getPaymentApiSubscriptionId(), $customer);
+    }
+
+    /**
+     * Invoices of one tenant, fetched from the payment-api.
+     *
+     * @param int $tenantId Tenant whose invoices to fetch.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getInvoicesForTenant(int $tenantId): array
+    {
+        return $this->apiClient->getInvoices(sprintf('tenant-%d', $tenantId));
+    }
+
+    /**
+     * Raw PDF bytes of one of the tenant's invoices; ownership is enforced
+     * by the payment-api.
+     *
+     * @param int $tenantId  Tenant the invoice must belong to.
+     * @param int $invoiceId Payment-api invoice id.
+     */
+    public function getInvoicePdfForTenant(int $tenantId, int $invoiceId): string
+    {
+        return $this->apiClient->getInvoicePdf($invoiceId, sprintf('tenant-%d', $tenantId));
+    }
+
+    /**
      * Schedule a plan change effective after the next billing cycle.
      *
      * Marks the current subscription for cancellation after one more charge, and stores

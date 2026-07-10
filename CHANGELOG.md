@@ -5,6 +5,15 @@ alle consumers bij hun eerstvolgende `composer update`.
 
 ## [Unreleased]
 
+## [0.8.9] — 2026-07-10
+
+- `PaymentApiClient::updateSubscriptionCustomer()` + `PaymentService::updateSubscriptionCustomer()`:
+  klantgegevens (factuuradres) van een bestaand abonnement bijwerken via
+  `PATCH /api/v1/subscriptions/{id}/customer` — voor backfill en profielwijzigingen.
+- `PaymentApiClient::getInvoices()` / `getInvoicePdf()` +
+  `PaymentService::getInvoicesForTenant()` / `getInvoicePdfForTenant()`: facturen van een
+  tenant ophalen en de PDF downloaden (tool- en gebruiker-gescoped door de payment-api).
+
 ## [0.8.8] — 2026-07-10
 
 - **Shopify-module v1**: store koppelen via custom-app-credentials (Admin API-token), geen

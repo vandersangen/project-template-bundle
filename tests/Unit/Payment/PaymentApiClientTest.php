@@ -264,6 +264,50 @@ class PaymentApiClientTest extends TestCase
         $this->assertFalse($body['immediate']);
     }
 
+    public function testUpdateSubscriptionCustomerSendsPatch(): void
+    {
+        $customer = ['companyName' => 'Acme B.V.', 'email' => 'billing@acme.example'];
+        $mock = new MockResponse(json_encode(['id' => 42, 'customer' => $customer]), [
+            'http_code' => 200,
+            'response_headers' => ['Content-Type: application/json'],
+        ]);
+        $client = $this->makeClient($mock);
+        $result = $client->updateSubscriptionCustomer(42, $customer);
+
+        $this->assertSame($customer, $result['customer']);
+        $this->assertSame('PATCH', $mock->getRequestMethod());
+        $this->assertStringContainsString('/api/v1/subscriptions/42/customer', $mock->getRequestUrl());
+        $body = json_decode((string) $mock->getRequestOptions()['body'], true);
+        $this->assertSame($customer, $body['customer']);
+    }
+
+    public function testGetInvoicesBuildsScopedUrl(): void
+    {
+        $mock = new MockResponse(json_encode([['id' => 1, 'number' => '2026-00001']]), [
+            'http_code' => 200,
+            'response_headers' => ['Content-Type: application/json'],
+        ]);
+        $client = $this->makeClient($mock);
+        $result = $client->getInvoices('tenant-5');
+
+        $this->assertSame('2026-00001', $result[0]['number']);
+        $this->assertStringContainsString('/api/v1/invoices?toolUserReference=tenant-5', $mock->getRequestUrl());
+    }
+
+    public function testGetInvoicePdfReturnsRawBytes(): void
+    {
+        $mock = new MockResponse('%PDF-1.4 fake', [
+            'http_code' => 200,
+            'response_headers' => ['Content-Type: application/pdf'],
+        ]);
+        $client = $this->makeClient($mock);
+        $pdf = $client->getInvoicePdf(7, 'tenant-5');
+
+        $this->assertStringStartsWith('%PDF', $pdf);
+        $this->assertStringContainsString('/api/v1/invoices/7/pdf', $mock->getRequestUrl());
+        $this->assertStringContainsString('toolUserReference=tenant-5', $mock->getRequestUrl());
+    }
+
     public function testBearerTokenIsIncludedInAllRequests(): void
     {
         $headers = ['response_headers' => ['Content-Type: application/json']];

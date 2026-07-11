@@ -5,6 +5,15 @@ alle consumers bij hun eerstvolgende `composer update`.
 
 ## [Unreleased]
 
+## [0.8.10] — 2026-07-11
+
+- Nieuw `Mail`-onderdeel voor per-tool abonnement-lifecycle-mails: `EmailTemplate`-entity
+  (per `ownerKey` + `templateKey`), `EmailTemplateService` (render + gebrande shell +
+  `{{ placeholders }}`, met tool-logo in de header en bedrijfslogo/legal-signatuur —
+  naam, adres, KvK/BTW/IBAN — uit de `InvoiceTemplate`) en `BrandedEmailMailer`
+  (branding-resolutie + per-tool afzender, achter `enabled`-override). NL-default subjects
+  en teksten per lifecycle-status. Migratie: `email_templates` (`Version20260711000000`).
+
 ## [0.8.9] — 2026-07-10
 
 - `PaymentApiClient::updateSubscriptionCustomer()` + `PaymentService::updateSubscriptionCustomer()`:

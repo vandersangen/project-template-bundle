@@ -50,6 +50,15 @@ class Configuration implements ConfigurationInterface
                 ->defaultValue('%env(APP_SECRET)%')
                 ->info('Secret used to encrypt stored third-party credentials at rest (defaults to APP_SECRET)')
             ->end()
+            ->arrayNode('two_factor')
+                ->addDefaultsIfNotSet()
+                ->children()
+                    ->scalarNode('issuer')
+                        ->defaultValue('App')
+                        ->info('Issuer name shown in the authenticator app for TOTP two-factor entries')
+                    ->end()
+                ->end()
+            ->end()
             ->end();
 
         return $treeBuilder;

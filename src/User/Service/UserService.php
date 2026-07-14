@@ -38,6 +38,11 @@ class UserService
         return $this->userRepository->find($userId);
     }
 
+    public function save(User $user): void
+    {
+        $this->userRepository->save($user, true);
+    }
+
     public function findByResetToken(string $token): ?User
     {
         return $this->userRepository->findByResetToken($token);

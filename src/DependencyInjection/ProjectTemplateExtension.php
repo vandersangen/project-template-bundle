@@ -64,6 +64,9 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
         // Shared credential encryption secret
         $container->setParameter('project_template.encryption_secret', $config['encryption_secret']);
 
+        // Two-factor authentication
+        $container->setParameter('project_template.two_factor.issuer', $config['two_factor']['issuer']);
+
         // Store bundle directory for routing
         $container->setParameter('project_template.bundle_dir', dirname(__DIR__));
         $container->setParameter('project_template.bundle_root', dirname(__DIR__, 2));

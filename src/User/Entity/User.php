@@ -43,6 +43,36 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(nullable: true)]
     private ?DateTimeImmutable $resetTokenExpiresAt = null;
 
+    /**
+     * Whether TOTP two-factor authentication is active for this account.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $totpEnabled = false;
+
+    /**
+     * The confirmed TOTP secret, encrypted at rest (see TotpService). Only set
+     * once enrollment is completed; null while 2FA is disabled.
+     */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $totpSecret = null;
+
+    /**
+     * A TOTP secret generated during enrollment but not yet confirmed with a
+     * valid code. Encrypted at rest. Promoted to totpSecret on enable, cleared
+     * on disable or a fresh setup.
+     */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $totpPendingSecret = null;
+
+    /**
+     * One-time recovery codes, stored as password hashes. Each hash is removed
+     * as its code is consumed. Null while 2FA is disabled.
+     *
+     * @var list<string>|null
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $totpBackupCodes = null;
+
     public function __construct()
     {
         $this->createdAt = new DateTimeImmutable();
@@ -138,6 +168,56 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setResetTokenExpiresAt(?DateTimeImmutable $resetTokenExpiresAt): static
     {
         $this->resetTokenExpiresAt = $resetTokenExpiresAt;
+        return $this;
+    }
+
+    public function isTotpEnabled(): bool
+    {
+        return $this->totpEnabled;
+    }
+
+    public function setTotpEnabled(bool $totpEnabled): static
+    {
+        $this->totpEnabled = $totpEnabled;
+        return $this;
+    }
+
+    public function getTotpSecret(): ?string
+    {
+        return $this->totpSecret;
+    }
+
+    public function setTotpSecret(?string $totpSecret): static
+    {
+        $this->totpSecret = $totpSecret;
+        return $this;
+    }
+
+    public function getTotpPendingSecret(): ?string
+    {
+        return $this->totpPendingSecret;
+    }
+
+    public function setTotpPendingSecret(?string $totpPendingSecret): static
+    {
+        $this->totpPendingSecret = $totpPendingSecret;
+        return $this;
+    }
+
+    /**
+     * @return list<string>|null
+     */
+    public function getTotpBackupCodes(): ?array
+    {
+        return $this->totpBackupCodes;
+    }
+
+    /**
+     * @param list<string>|null $totpBackupCodes
+     */
+    public function setTotpBackupCodes(?array $totpBackupCodes): static
+    {
+        $this->totpBackupCodes = $totpBackupCodes;
         return $this;
     }
 

@@ -1340,6 +1340,9 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         api_version?: scalar|Param|null, // Shopify Admin API version used for REST and GraphQL calls // Default: "2026-01"
  *     },
  *     encryption_secret?: scalar|Param|null, // Secret used to encrypt stored third-party credentials at rest (defaults to APP_SECRET) // Default: "%env(APP_SECRET)%"
+ *     two_factor?: array{
+ *         issuer?: scalar|Param|null, // Issuer name shown in the authenticator app for TOTP two-factor entries // Default: "App"
+ *     },
  * }
  * @psalm-type TwigConfig = array{
  *     form_themes?: list<scalar|Param|null>,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace VanDerSangen\ProjectTemplateBundle\Auth\Service;
 
+use SensitiveParameter;
 use VanDerSangen\ProjectTemplateBundle\Mail\Service\MailService;
 use VanDerSangen\ProjectTemplateBundle\Mail\Template\DefaultMailTemplate;
 use VanDerSangen\ProjectTemplateBundle\User\Entity\User;
@@ -16,10 +17,20 @@ class AuthService
         private readonly UserService $userService,
         private readonly JWTTokenManagerInterface $jwtManager,
         private readonly MailService $mailService,
+        private readonly TotpService $totpService,
+        private readonly TwoFactorChallengeService $challengeService,
     ) {
     }
 
-    public function login(string $email, string $password): ?array
+    /**
+     * Authenticate with e-mail + password.
+     *
+     * Returns a full {token, user} payload when 2FA is off, or a
+     * {twoFactorRequired: true, challenge} payload when the account has 2FA
+     * enabled — in which case the caller must complete {@see verifyTwoFactor}.
+     * Returns null on invalid credentials.
+     */
+    public function login(string $email, #[SensitiveParameter] string $password): ?array
     {
         $user = $this->userService->findByEmail($email);
 
@@ -27,10 +38,57 @@ class AuthService
             return null;
         }
 
-        $token = $this->jwtManager->create($user);
+        if ($user->isTotpEnabled()) {
+            return [
+                'twoFactorRequired' => true,
+                'challenge' => $this->challengeService->mint((int) $user->getId()),
+            ];
+        }
 
+        return $this->issueToken($user);
+    }
+
+    /**
+     * Complete a 2FA login: given the challenge from {@see login} and a TOTP
+     * code (or a one-time backup code), return a full {token, user} payload, or
+     * null if the challenge or code is invalid.
+     */
+    public function verifyTwoFactor(string $challenge, #[SensitiveParameter] string $code): ?array
+    {
+        $userId = $this->challengeService->resolveUserId($challenge);
+        if ($userId === null) {
+            return null;
+        }
+
+        $user = $this->userService->findById($userId);
+        if (!$user || !$user->isTotpEnabled() || $user->getTotpSecret() === null) {
+            return null;
+        }
+
+        $secret = $this->totpService->decryptSecret($user->getTotpSecret());
+        if ($this->totpService->verifyCode($secret, $code)) {
+            return $this->issueToken($user);
+        }
+
+        // Fall back to a one-time recovery code.
+        $remaining = $this->totpService->consumeBackupCode($user->getTotpBackupCodes() ?? [], $code);
+        if ($remaining !== null) {
+            $user->setTotpBackupCodes($remaining);
+            $this->userService->save($user);
+
+            return $this->issueToken($user);
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{token: string, user: array}
+     */
+    private function issueToken(User $user): array
+    {
         return [
-            'token' => $token,
+            'token' => $this->jwtManager->create($user),
             'user' => $user->toArray(),
         ];
     }

@@ -5,6 +5,25 @@ alle consumers bij hun eerstvolgende `composer update`.
 
 ## [Unreleased]
 
+## [0.8.11] — 2026-07-14
+
+- **Optionele tweestapsverificatie (TOTP)**, opt-in per gebruiker. Nieuw op de `User`-entity:
+  `totpEnabled` + versleutelde `totpSecret`/`totpPendingSecret` en gehashte `totpBackupCodes`
+  (migratie `Version20260713120000`, schema-defensief). `TotpService` (secret + otpauth-URI +
+  code-verificatie met ±1 tijdvenster, RFC-160-bit secret, herstelcodes) en
+  `TwoFactorChallengeService` (kortlevend, tamper-proof challenge via `CredentialEncryptor`).
+- Login is nu tweestaps voor 2FA-accounts: `AuthService::login()` geeft bij ingeschakelde 2FA
+  een `{ twoFactorRequired, challenge }` i.p.v. een token; `POST /api/auth/2fa/verify`
+  (publiek) wisselt challenge + code (TOTP óf eenmalige herstelcode) in voor de echte JWT.
+  Gedrag zonder 2FA is ongewijzigd.
+- Enrollment-endpoints (JWT-vereist): `POST /api/profile/2fa/setup|enable|disable`,
+  `GET /api/profile/2fa/status`. `enable` bevestigt met een geldige code en levert eenmalig
+  8 herstelcodes; `disable` vereist een geldige code.
+- Nieuwe config `project_template.two_factor.issuer` (default `App`) voor de naam in de
+  authenticator-app. Dependency: `spomky-labs/otphp ^11.2`.
+- **Consumers moeten `^/api/auth/2fa/verify` publiek maken** in hun `security.yaml`
+  (public firewall + `access_control`), zoals in de test-app-referentieconfig.
+
 ## [0.8.10] — 2026-07-11
 
 - Nieuw `Mail`-onderdeel voor per-tool abonnement-lifecycle-mails: `EmailTemplate`-entity

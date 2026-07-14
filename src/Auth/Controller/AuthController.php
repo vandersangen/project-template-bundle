@@ -38,6 +38,27 @@ class AuthController extends AbstractController
         return $this->json($result);
     }
 
+    #[Route('/api/auth/2fa/verify', name: 'auth_2fa_verify', methods: ['POST'])]
+    public function verifyTwoFactor(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+
+        $challenge = $data['challenge'] ?? '';
+        $code = $data['code'] ?? '';
+
+        if (empty($challenge) || empty($code)) {
+            return $this->json(['error' => 'Challenge and code are required'], 400);
+        }
+
+        $result = $this->authService->verifyTwoFactor($challenge, (string) $code);
+
+        if (!$result) {
+            return $this->json(['error' => 'Invalid or expired code'], 401);
+        }
+
+        return $this->json($result);
+    }
+
     #[Route('/api/auth/register', name: 'auth_register', methods: ['POST'])]
     public function register(Request $request): JsonResponse
     {

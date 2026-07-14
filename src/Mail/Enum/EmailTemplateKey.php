@@ -23,9 +23,18 @@ enum EmailTemplateKey: string
     case SubscriptionPendingCancellation = 'subscription_pending_cancellation';
     case SubscriptionPlanChangeScheduled = 'subscription_plan_change_scheduled';
 
+    // Account-/systeemmails (niet-abonnement). Verstuurd door de consumerende tool
+    // via een branded kanaal, met dezelfde shell als de lifecycle-mails.
+    case Welcome = 'welcome';
+    case PasswordReset = 'password_reset';
+    case PasswordResetConfirmation = 'password_reset_confirmation';
+
     public function label(): string
     {
         return match ($this) {
+            self::Welcome => 'Welkom',
+            self::PasswordReset => 'Wachtwoord opnieuw instellen',
+            self::PasswordResetConfirmation => 'Wachtwoord gewijzigd',
             self::SubscriptionActivated => 'Abonnement geactiveerd',
             self::SubscriptionRecovered => 'Betaling hersteld',
             self::SubscriptionPastDue => 'Betaling mislukt',
@@ -40,6 +49,9 @@ enum EmailTemplateKey: string
     public function defaultSubject(): string
     {
         return match ($this) {
+            self::Welcome => 'Welkom bij {{ toolName }}',
+            self::PasswordReset => 'Stel je wachtwoord opnieuw in',
+            self::PasswordResetConfirmation => 'Je wachtwoord is gewijzigd',
             self::SubscriptionActivated => 'Je abonnement is nu actief',
             self::SubscriptionRecovered => 'Je abonnement loopt weer',
             self::SubscriptionPastDue => 'Betaling mislukt — actie vereist',
@@ -58,6 +70,22 @@ enum EmailTemplateKey: string
     public function defaultBodyHtml(): string
     {
         return match ($this) {
+            self::Welcome =>
+                '<h1>Welkom, {{ customerName }}!</h1>'
+                . '<p>Je account bij {{ toolName }} is aangemaakt. Fijn dat je er bent!</p>'
+                . '<p>Je kunt vanaf nu inloggen en aan de slag.</p>',
+            self::PasswordReset =>
+                '<h1>Wachtwoord opnieuw instellen</h1>'
+                . '<p>Hallo {{ customerName }}, we ontvingen een verzoek om je wachtwoord opnieuw '
+                . 'in te stellen.</p>'
+                . '<p><a href="{{ resetUrl }}">Klik hier om een nieuw wachtwoord te kiezen</a>. '
+                . 'Deze link verloopt over {{ expiry }}.</p>'
+                . '<p>Heb je dit niet aangevraagd? Dan kun je deze e-mail negeren; je wachtwoord '
+                . 'blijft ongewijzigd.</p>',
+            self::PasswordResetConfirmation =>
+                '<h1>Je wachtwoord is gewijzigd</h1>'
+                . '<p>Hallo {{ customerName }}, je wachtwoord is succesvol gewijzigd.</p>'
+                . '<p>Was jij dit niet? Neem dan direct contact met ons op.</p>',
             self::SubscriptionActivated =>
                 '<h1>Abonnement geactiveerd</h1>'
                 . '<p>Je abonnement is nu actief. Bedankt voor je betaling!</p>'

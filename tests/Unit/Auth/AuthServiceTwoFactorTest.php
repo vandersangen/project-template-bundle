@@ -11,7 +11,7 @@ use ReflectionProperty;
 use VanDerSangen\ProjectTemplateBundle\Auth\Service\AuthService;
 use VanDerSangen\ProjectTemplateBundle\Auth\Service\TotpService;
 use VanDerSangen\ProjectTemplateBundle\Auth\Service\TwoFactorChallengeService;
-use VanDerSangen\ProjectTemplateBundle\Mail\Service\MailService;
+use VanDerSangen\ProjectTemplateBundle\Auth\Mail\AuthMailSenderInterface;
 use VanDerSangen\ProjectTemplateBundle\Shared\Service\CredentialEncryptor;
 use VanDerSangen\ProjectTemplateBundle\User\Entity\User;
 use VanDerSangen\ProjectTemplateBundle\User\Service\UserService;
@@ -188,7 +188,7 @@ class AuthServiceTwoFactorTest extends TestCase
         return new AuthService(
             $userService,
             $jwtManager,
-            $this->createMock(MailService::class),
+            $this->createMock(AuthMailSenderInterface::class),
             $this->totpService,
             $this->challengeService,
         );

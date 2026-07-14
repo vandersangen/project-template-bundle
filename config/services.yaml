@@ -77,6 +77,12 @@ services:
     VanDerSangen\ProjectTemplateBundle\Mail\Service\MailService:
         arguments:
             $senderEmail: '%project_template.mailer_sender%'
+
+    # Auth-mail sender: default = render + send locally. A consuming project can
+    # alias this interface to its own implementation (e.g. send via a central
+    # branded mail service) to override.
+    VanDerSangen\ProjectTemplateBundle\Auth\Mail\AuthMailSenderInterface:
+        alias: VanDerSangen\ProjectTemplateBundle\Auth\Mail\DefaultAuthMailSender
     # Queue Module Services
     VanDerSangen\ProjectTemplateBundle\Queue\Service\QueueService:
         arguments:

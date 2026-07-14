@@ -26,6 +26,7 @@
         "dragonmantank/cron-expression": "^3.3",
         "knplabs/knp-snappy": "^1.5",
         "lexik/jwt-authentication-bundle": "^3.2",
+        "spomky-labs/otphp": "^11.2",
         "symfony/config": "7.4.*",
         "symfony/console": "7.4.*",
         "symfony/dependency-injection": "7.4.*",

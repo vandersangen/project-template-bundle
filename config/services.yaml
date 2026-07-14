@@ -40,6 +40,12 @@ services:
         resource: '../src/Auth/Controller/'
         tags: ['controller.service_arguments']
 
+    # 2FA controller needs the configured issuer name for provisioning URIs
+    VanDerSangen\ProjectTemplateBundle\Auth\Controller\TwoFactorController:
+        arguments:
+            $issuer: '%project_template.two_factor.issuer%'
+        tags: ['controller.service_arguments']
+
     VanDerSangen\ProjectTemplateBundle\User\Controller\:
         resource: '../src/User/Controller/'
         tags: ['controller.service_arguments']

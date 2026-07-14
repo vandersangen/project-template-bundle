@@ -5,6 +5,17 @@ alle consumers bij hun eerstvolgende `composer update`.
 
 ## [Unreleased]
 
+## [0.8.12] — 2026-07-14
+
+- **Pluggable auth-mail-sender.** Nieuw `Auth\Mail\AuthMailSenderInterface` +
+  `DefaultAuthMailSender` (huidig gedrag: render + verstuur lokaal). `AuthService` verstuurt
+  welkom/wachtwoord-reset/reset-bevestiging nu via die interface, zodat een consumerend project
+  z'n systeemmails kan omleiden (bijv. naar een centrale branded mail-service) door de interface
+  te aliassen naar een eigen implementatie. Backward compatible: zonder override verandert er niets.
+- **Auth-template-keys** toegevoegd aan `EmailTemplateKey` (`welcome`, `password_reset`,
+  `password_reset_confirmation`) met NL default subject/body — zo verschijnen ze in het branded
+  mailsysteem en het E-mail-templates-admin, naast de bestaande subscription-keys.
+
 ## [0.8.11] — 2026-07-14
 
 - **Optionele tweestapsverificatie (TOTP)**, opt-in per gebruiker. Nieuw op de `User`-entity:

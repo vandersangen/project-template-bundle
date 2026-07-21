@@ -96,6 +96,49 @@ class BrandedEmailMailerTest extends TestCase
         );
     }
 
+    public function testPassesAttachmentsThroughToMailService(): void
+    {
+        $this->templateService->method('isEnabled')->willReturn(true);
+        $this->templateService->method('render')->willReturn(['subject' => 'S', 'html' => 'H']);
+        $this->invoiceTemplateService->method('find')->willReturn(new InvoiceTemplate());
+
+        $attachments = [
+            [
+                'content' => base64_encode('%PDF-1.4'),
+                'filename' => 'factuur-2026-001.pdf',
+                'mime' => 'application/pdf',
+            ],
+        ];
+
+        $this->mailService->expects($this->once())
+            ->method('createAndSend')
+            ->with('S', 'H', ['a@b.nl'], null, null, null, $attachments)
+            ->willReturn(new Mail());
+
+        $this->mailer->send(
+            'tool:1',
+            EmailTemplateKey::Invoice,
+            ['a@b.nl'],
+            [],
+            [],
+            $attachments,
+        );
+    }
+
+    public function testSendsWithoutAttachmentsByDefault(): void
+    {
+        $this->templateService->method('isEnabled')->willReturn(true);
+        $this->templateService->method('render')->willReturn(['subject' => 'S', 'html' => 'H']);
+        $this->invoiceTemplateService->method('find')->willReturn(new InvoiceTemplate());
+
+        $this->mailService->expects($this->once())
+            ->method('createAndSend')
+            ->with('S', 'H', ['a@b.nl'], null, null, null, null)
+            ->willReturn(new Mail());
+
+        $this->mailer->send('tool:1', EmailTemplateKey::SubscriptionCancelled, ['a@b.nl']);
+    }
+
     public function testPassesBrandingAndDataIntoRender(): void
     {
         $this->templateService->method('isEnabled')->willReturn(true);

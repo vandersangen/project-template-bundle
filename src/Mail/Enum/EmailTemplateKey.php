@@ -30,6 +30,15 @@ enum EmailTemplateKey: string
     case PasswordReset = 'password_reset';
     case PasswordResetConfirmation = 'password_reset_confirmation';
 
+    // Facturatie en aanstaande incasso: klantgericht, met dezelfde shell.
+    case Invoice = 'invoice';
+    case SubscriptionUpcomingCharge = 'subscription_upcoming_charge';
+
+    // Operationele meldingen aan de eigen beheerders (geen klantmail), maar wel
+    // door dezelfde branded route zodat alle uitgaande post er hetzelfde uitziet.
+    case WebhookForwardFailure = 'webhook_forward_failure';
+    case DailySyncSummary = 'daily_sync_summary';
+
     public function label(): string
     {
         return match ($this) {
@@ -45,6 +54,10 @@ enum EmailTemplateKey: string
             self::SubscriptionEnded => 'Abonnement beëindigd',
             self::SubscriptionPendingCancellation => 'Opzegging ingepland',
             self::SubscriptionPlanChangeScheduled => 'Wijziging abonnement ingepland',
+            self::Invoice => 'Factuur',
+            self::SubscriptionUpcomingCharge => 'Aanstaande incasso',
+            self::WebhookForwardFailure => 'Webhook-aflevering mislukt',
+            self::DailySyncSummary => 'Dagelijkse sync-samenvatting',
         };
     }
 
@@ -63,6 +76,10 @@ enum EmailTemplateKey: string
             self::SubscriptionEnded => 'Je abonnement is beëindigd',
             self::SubscriptionPendingCancellation => 'Je opzegging is ingepland',
             self::SubscriptionPlanChangeScheduled => 'Je wijziging is ingepland',
+            self::Invoice => 'Factuur {{ invoiceNumber }}',
+            self::SubscriptionUpcomingCharge => 'Aanstaande incasso van {{ amount }} op {{ chargeDate }}',
+            self::WebhookForwardFailure => 'Webhook-aflevering definitief mislukt',
+            self::DailySyncSummary => 'Dagelijkse sync-samenvatting',
         };
     }
 
@@ -134,6 +151,33 @@ enum EmailTemplateKey: string
                 . 'stapt je abonnement over op het nieuwe plan.</p>'
                 . '<p><strong>Nieuw plan:</strong> {{ newPlanAmount }} / {{ newPlanInterval }}</p>'
                 . '<p>Je huidige toegang blijft actief tot de wijziging ingaat.</p>',
+            self::Invoice =>
+                '<h1>Factuur {{ invoiceNumber }}</h1>'
+                . '<p>Beste {{ customerName }},</p>'
+                . '<p>In de bijlage vind je factuur <strong>{{ invoiceNumber }}</strong> van '
+                . '{{ companyName }}. {{ paymentNote }}</p>'
+                . '<p><strong>Factuurdatum:</strong> {{ invoiceDate }}<br>'
+                . '<strong>Bedrag:</strong> {{ amount }}</p>'
+                . '<p>Bewaar deze e-mail voor je administratie.</p>',
+            self::SubscriptionUpcomingCharge =>
+                '<h1>Aanstaande incasso</h1>'
+                . '<p>Hallo {{ customerName }}, dit is een herinnering dat we binnenkort '
+                . 'het abonnementsbedrag incasseren.</p>'
+                . '<p><strong>Bedrag:</strong> {{ amount }}<br>'
+                . '<strong>Incassodatum:</strong> {{ chargeDate }}</p>'
+                . '<p>Zorg dat er voldoende saldo op je rekening staat. Je hoeft verder niets te doen.</p>',
+            self::WebhookForwardFailure =>
+                '<h1>Webhook-aflevering definitief mislukt</h1>'
+                . '<p>Het doorsturen van een webhook naar een tool is na alle pogingen niet gelukt. '
+                . 'De tool is waarschijnlijk onbereikbaar.</p>'
+                . '<p><strong>Tool:</strong> {{ toolLabel }}<br>'
+                . '<strong>Webhook:</strong> {{ webhookLabel }}<br>'
+                . '<strong>Laatste fout:</strong> {{ errorMessage }}</p>'
+                . '<p>Controleer de bereikbaarheid van de tool en verstuur de webhook zo nodig opnieuw.</p>',
+            self::DailySyncSummary =>
+                '<h1>Dagelijkse sync-samenvatting</h1>'
+                . '<p>Overzicht van de Mollie-synchronisatie van {{ syncDate }}.</p>'
+                . '<p>{{ summaryHtml }}</p>',
         };
     }
 }

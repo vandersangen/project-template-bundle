@@ -39,6 +39,7 @@ class BrandedEmailMailer
      * @param array<int, string>         $recipients
      * @param array<string, scalar|null> $data
      * @param array<string, scalar|null> $brandingOverrides
+     * @param array<int, array{path?: string, content?: string, filename: string, mime?: string}>|null $attachments
      */
     public function send(
         string $ownerKey,
@@ -46,6 +47,7 @@ class BrandedEmailMailer
         array $recipients,
         array $data = [],
         array $brandingOverrides = [],
+        ?array $attachments = null,
     ): ?Mail {
         if ($recipients === []) {
             return null;
@@ -72,6 +74,9 @@ class BrandedEmailMailer
             $rendered['html'],
             $recipients,
             $sender,
+            null,
+            null,
+            $attachments,
         );
     }
 

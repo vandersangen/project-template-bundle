@@ -16,6 +16,7 @@ enum EmailTemplateKey: string
 {
     case SubscriptionActivated = 'subscription_activated';
     case SubscriptionRecovered = 'subscription_recovered';
+    case PaymentReceived = 'payment_received';
     case SubscriptionPastDue = 'subscription_past_due';
     case SubscriptionVerificationFailed = 'subscription_verification_failed';
     case SubscriptionCancelled = 'subscription_cancelled';
@@ -37,6 +38,7 @@ enum EmailTemplateKey: string
             self::PasswordResetConfirmation => 'Wachtwoord gewijzigd',
             self::SubscriptionActivated => 'Abonnement geactiveerd',
             self::SubscriptionRecovered => 'Betaling hersteld',
+            self::PaymentReceived => 'Betaling ontvangen',
             self::SubscriptionPastDue => 'Betaling mislukt',
             self::SubscriptionVerificationFailed => 'Verificatiebetaling mislukt',
             self::SubscriptionCancelled => 'Abonnement opgezegd',
@@ -54,6 +56,7 @@ enum EmailTemplateKey: string
             self::PasswordResetConfirmation => 'Je wachtwoord is gewijzigd',
             self::SubscriptionActivated => 'Je abonnement is nu actief',
             self::SubscriptionRecovered => 'Je abonnement loopt weer',
+            self::PaymentReceived => 'Betaling ontvangen — bedankt!',
             self::SubscriptionPastDue => 'Betaling mislukt — actie vereist',
             self::SubscriptionVerificationFailed => 'Verificatiebetaling mislukt — actie vereist',
             self::SubscriptionCancelled => 'Je abonnement is opgezegd',
@@ -95,6 +98,14 @@ enum EmailTemplateKey: string
                 . '<p>Goed nieuws — we hebben je openstaande betaling geïncasseerd en je '
                 . 'abonnement is weer actief.</p>'
                 . '<p><strong>Volgende incassodatum:</strong> {{ nextBillingDate }}</p>',
+            self::PaymentReceived =>
+                '<h1>Betaling ontvangen</h1>'
+                . '<p>Bedankt voor je betaling! Dit is je bevestiging.</p>'
+                . '<p><strong>Referentie:</strong> {{ reference }}<br>'
+                . '<strong>Datum:</strong> {{ paymentDate }}<br>'
+                . '<strong>Omschrijving:</strong> {{ description }}<br>'
+                . '<strong>Bedrag:</strong> {{ amount }}</p>'
+                . '<p>Bewaar deze e-mail voor je administratie.</p>',
             self::SubscriptionPastDue =>
                 '<h1>Betaling mislukt</h1>'
                 . '<p>Het is ons niet gelukt om je abonnementsbetaling te verwerken.</p>'

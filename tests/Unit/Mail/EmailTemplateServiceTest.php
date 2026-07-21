@@ -46,6 +46,25 @@ class EmailTemplateServiceTest extends TestCase
         $this->assertStringNotContainsString('{{ endsAt }}', $result['html']);
     }
 
+    public function testRenderPaymentReceivedReceiptFillsData(): void
+    {
+        $this->repository->method('findOneByOwnerAndKey')->willReturn(null);
+
+        $result = $this->service->render('tool:1', EmailTemplateKey::PaymentReceived, [
+            'amount' => '€ 12,34',
+            'paymentDate' => '17 juli 2026',
+            'description' => 'Maandabonnement Pro',
+            'reference' => 'PMT-42',
+        ]);
+
+        $this->assertSame('Betaling ontvangen — bedankt!', $result['subject']);
+        $this->assertStringContainsString('Betaling ontvangen', $result['html']);
+        $this->assertStringContainsString('€ 12,34', $result['html']);
+        $this->assertStringContainsString('Maandabonnement Pro', $result['html']);
+        $this->assertStringContainsString('PMT-42', $result['html']);
+        $this->assertStringNotContainsString('{{', $result['html']);
+    }
+
     public function testRenderStripsUnknownPlaceholders(): void
     {
         $template = (new EmailTemplate())

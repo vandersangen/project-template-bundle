@@ -3,7 +3,12 @@
 Alle noemenswaardige wijzigingen per release. Consumers pinnen `^0.8`; elke tag bereikt
 alle consumers bij hun eerstvolgende `composer update`.
 
-## [Unreleased]
+## [0.8.13] — 2026-07-21
+
+- **Kwitantie-template-key** `payment_received` toegevoegd aan `EmailTemplateKey` met NL default
+  subject/body (referentie/datum/omschrijving/bedrag). Bedoeld voor de branded betalingsbevestiging
+  die payment-api op elke geïncasseerde betaling naar de klant stuurt; verschijnt automatisch in het
+  E-mail-templates-admin naast de bestaande lifecycle-keys.
 
 ## [0.8.12] — 2026-07-14
 

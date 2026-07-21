@@ -3,6 +3,19 @@
 Alle noemenswaardige wijzigingen per release. Consumers pinnen `^0.8`; elke tag bereikt
 alle consumers bij hun eerstvolgende `composer update`.
 
+## [0.8.14] — 2026-07-21
+
+- **Bijlagen in `BrandedEmailMailer::send()`.** Nieuwe optionele `$attachments`-parameter die
+  wordt doorgegeven aan `MailService::createAndSend()`. Nodig om mail mét bestand — zoals de
+  factuur-PDF — door de gebrande route te sturen in plaats van er een losse, ongebrande mail
+  van te maken. Achterwaarts compatibel: zonder de parameter verandert er niets.
+- **Vier nieuwe template-keys** met NL default subject/body, zodat álle uitgaande post door
+  dezelfde branded shell gaat en per tool bewerkbaar is in het E-mail-templates-admin:
+  - `invoice` — factuurmail (referentie, factuurdatum, bedrag; PDF als bijlage)
+  - `subscription_upcoming_charge` — aankondiging van een aanstaande incasso
+  - `webhook_forward_failure` — operationele melding: webhook definitief niet afgeleverd
+  - `daily_sync_summary` — operationele melding: dagelijkse sync-samenvatting
+
 ## [0.8.13] — 2026-07-21
 
 - **Kwitantie-template-key** `payment_received` toegevoegd aan `EmailTemplateKey` met NL default

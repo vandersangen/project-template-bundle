@@ -3,6 +3,18 @@
 Alle noemenswaardige wijzigingen per release. Consumers pinnen `^0.8`; elke tag bereikt
 alle consumers bij hun eerstvolgende `composer update`.
 
+## [0.8.15] — 2026-09-22
+
+- **`bundle:database:copy` struikelt niet meer over foreign keys.** De tabellen worden gekopieerd in
+  de volgorde die MySQL teruggeeft — alfabetisch — en die staat volledig los van de
+  foreign-key-afhankelijkheden. Verwijst een tabel naar een tabel die verderop in de lijst staat, dan
+  faalt het `CREATE TABLE` met `SQLSTATE[HY000]: General error: 1824 Failed to open the referenced
+  table '...'`; de `INSERT ... SELECT` per tabel heeft hetzelfde probleem. `FOREIGN_KEY_CHECKS` gaat
+  nu uit voor de duur van de kopie en wordt in een `finally` weer aangezet. Schema's waarvan de FK's
+  toevallig alleen naar alfabetisch eerdere tabellen wezen werkten al; een genormaliseerd model was
+  niet te kopiëren (RENCO: `accounts` → `customers` → `sales_points` is in geen enkele alfabetische
+  volgorde op te lossen).
+
 ## [0.8.14] — 2026-07-21
 
 - **Bijlagen in `BrandedEmailMailer::send()`.** Nieuwe optionele `$attachments`-parameter die

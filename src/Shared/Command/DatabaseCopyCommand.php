@@ -272,29 +272,41 @@ class DatabaseCopyCommand extends Command
             $progressBar = $io->createProgressBar(count($tables));
             $progressBar->start();
 
-            foreach ($tables as $table) {
-                // Get CREATE TABLE statement
-                $createTableResult = $connection->fetchAssociative(
-                    sprintf('SHOW CREATE TABLE `%s`.`%s`', $sourceDb, $table)
-                );
-                $createTableSql = $createTableResult['Create Table'];
+            // Tables are copied in the order MySQL reports them, which is alphabetical and bears
+            // no relation to their foreign key dependencies: a table that references a table
+            // further down the list is created before its parent exists, which fails with
+            // "Failed to open the referenced table". The row copy has the same problem. Turning
+            // the checks off for the duration of the copy solves both; the source database
+            // already guarantees the copied rows are consistent.
+            $connection->executeStatement('SET FOREIGN_KEY_CHECKS = 0');
 
-                // Create table in target database
-                $connection->executeStatement(sprintf('USE `%s`', $targetDb));
-                $connection->executeStatement($createTableSql);
+            try {
+                foreach ($tables as $table) {
+                    // Get CREATE TABLE statement
+                    $createTableResult = $connection->fetchAssociative(
+                        sprintf('SHOW CREATE TABLE `%s`.`%s`', $sourceDb, $table)
+                    );
+                    $createTableSql = $createTableResult['Create Table'];
 
-                // Copy data
-                $connection->executeStatement(
-                    sprintf(
-                        'INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`%s`',
-                        $targetDb,
-                        $table,
-                        $sourceDb,
-                        $table
-                    )
-                );
+                    // Create table in target database
+                    $connection->executeStatement(sprintf('USE `%s`', $targetDb));
+                    $connection->executeStatement($createTableSql);
 
-                $progressBar->advance();
+                    // Copy data
+                    $connection->executeStatement(
+                        sprintf(
+                            'INSERT INTO `%s`.`%s` SELECT * FROM `%s`.`%s`',
+                            $targetDb,
+                            $table,
+                            $sourceDb,
+                            $table
+                        )
+                    );
+
+                    $progressBar->advance();
+                }
+            } finally {
+                $connection->executeStatement('SET FOREIGN_KEY_CHECKS = 1');
             }
 
             $progressBar->finish();

@@ -64,6 +64,12 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
         // Shared credential encryption secret
         $container->setParameter('project_template.encryption_secret', $config['encryption_secret']);
 
+        // Queue: how much cron output a queue_job_logs line keeps
+        $container->setParameter(
+            'project_template.queue.max_cron_output_bytes',
+            $config['queue']['max_cron_output_bytes'],
+        );
+
         // Two-factor authentication
         $container->setParameter('project_template.two_factor.issuer', $config['two_factor']['issuer']);
 

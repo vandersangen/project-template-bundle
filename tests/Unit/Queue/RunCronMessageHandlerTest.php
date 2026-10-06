@@ -183,4 +183,38 @@ class RunCronMessageHandlerTest extends TestCase
         $this->queueJobLogRepository->expects($this->never())->method('saveOutputSoFar');
         ($this->handler)(new RunCronMessage(1));
     }
+
+    public function testOutputPastTheLimitKeepsTheEndAndWholeCharacters(): void
+    {
+        $handler = new RunCronMessageHandler(
+            $this->cronRepository,
+            $this->cronScheduleResolver,
+            $this->kernel,
+            $this->processRunner,
+            $this->queueJobLogContext,
+            $this->queueJobLogRepository,
+            1024
+        );
+        $cron = new Cron();
+        $cron->setCommand('list');
+        $cron->setSchedule('* * * * *');
+        $this->cronRepository->method('find')->willReturn($cron);
+        $this->kernel->method('getProjectDir')->willReturn('/app');
+        $this->cronScheduleResolver->method('getNextRunAt')->willReturn(new DateTimeImmutable());
+        $queueJobLog = new QueueJobLog();
+        (new \ReflectionProperty(QueueJobLog::class, 'id'))->setValue($queueJobLog, 12);
+        $this->queueJobLogContext->enter($queueJobLog);
+        $this->processRunner->method('run')
+            ->willReturnCallback(function ($process, ?callable $onOutput) {
+                $onOutput('begin' . str_repeat('é', 1000) . 'einde');
+                return true;
+            });
+        ($handler)(new RunCronMessage(1));
+        $stdout = (string) $queueJobLog->getStdout();
+        $this->assertStringStartsWith('… (start left out)', $stdout);
+        $this->assertStringEndsWith('einde', $stdout);
+        $this->assertStringNotContainsString('begin', $stdout);
+        $this->assertTrue(mb_check_encoding($stdout, 'UTF-8'), 'The cut falls between characters.');
+        $this->assertLessThanOrEqual(1024 + 30, strlen($stdout));
+    }
 }

@@ -13,20 +13,19 @@ use VanDerSangen\ProjectTemplateBundle\Queue\Message\RunCronMessage;
 use VanDerSangen\ProjectTemplateBundle\Queue\ProcessRunnerInterface;
 use VanDerSangen\ProjectTemplateBundle\Queue\QueueJobLogContext;
 use VanDerSangen\ProjectTemplateBundle\Queue\Repository\QueueJobLogRepository;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Process\Process;
 
 /**
  * Runs the cron's command. What it prints goes into the message's own queue_job_logs line while it runs, about once a
- * second, so a run can be followed live; the newest output is kept when it grows past MAX_OUTPUT_CHARACTERS.
+ * second, so a run can be followed live. Past project_template.queue.max_cron_output_bytes (default 1 MB) the start is
+ * left out, so the end (the result) always stays.
  */
 #[AsMessageHandler]
 class RunCronMessageHandler implements AsyncMessageHandlerInterface
 {
-    /** The most output kept; beyond it the start is dropped, so the end (the result) always stays. */
-    private const int MAX_OUTPUT_CHARACTERS = 200_000;
-
     public function __construct(
         private readonly CronRepository $cronRepository,
         private readonly CronScheduleResolver $cronScheduleResolver,
@@ -34,6 +33,8 @@ class RunCronMessageHandler implements AsyncMessageHandlerInterface
         private readonly ProcessRunnerInterface $processRunner,
         private readonly QueueJobLogContext $queueJobLogContext,
         private readonly QueueJobLogRepository $queueJobLogRepository,
+        #[Autowire(param: 'project_template.queue.max_cron_output_bytes')]
+        private readonly int $maxOutputBytes = 1048576,
     ) {
     }
 
@@ -89,8 +90,10 @@ class RunCronMessageHandler implements AsyncMessageHandlerInterface
                 return;
             }
 
-            if (mb_strlen($output) > self::MAX_OUTPUT_CHARACTERS) {
-                $output = "… (start left out)\n" . mb_substr($output, -self::MAX_OUTPUT_CHARACTERS);
+            if (strlen($output) > $this->maxOutputBytes) {
+                // Cut on bytes, cheap for large output; mb_strcut moves the cut to the start of a character.
+                $output = "… (start left out)\n"
+                    . mb_strcut($output, strlen($output) - $this->maxOutputBytes, null, 'UTF-8');
             }
 
             $queueJobLog->setStdout($output);

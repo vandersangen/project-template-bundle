@@ -8,11 +8,14 @@ use VanDerSangen\ProjectTemplateBundle\Queue\Entity\QueueJobLog;
 use VanDerSangen\ProjectTemplateBundle\Queue\Enum\QueueJobLogStatus;
 use VanDerSangen\ProjectTemplateBundle\Queue\Message\SendMailMessage;
 use VanDerSangen\ProjectTemplateBundle\Queue\Middleware\QueueJobLogMiddleware;
+use VanDerSangen\ProjectTemplateBundle\Queue\QueueJobLogContext;
 use VanDerSangen\ProjectTemplateBundle\Queue\Repository\QueueJobLogRepository;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Middleware\MiddlewareInterface;
 use Symfony\Component\Messenger\Middleware\StackInterface;
+use Symfony\Component\Messenger\Stamp\ReceivedStamp;
+use Symfony\Component\Messenger\Stamp\SentStamp;
 
 class QueueJobLogMiddlewareTest extends TestCase
 {
@@ -356,5 +359,63 @@ class QueueJobLogMiddlewareTest extends TestCase
         $this->assertArrayHasKey('bad', $data);
         $this->assertIsString($data['bad']);
         $this->assertStringStartsWith('[object ', $data['bad']);
+    }
+
+    public function testAMessageThatWasOnlySentToATransportIsLoggedAsQueued(): void
+    {
+        $envelope = new Envelope(new SendMailMessage(1));
+        $savedLogs = [];
+        $this->repository->method('save')
+            ->willReturnCallback(function (QueueJobLog $log) use (&$savedLogs) {
+                $savedLogs[] = clone $log;
+            });
+        $nextMiddleware = $this->createMock(MiddlewareInterface::class);
+        $nextMiddleware->method('handle')->willReturn($envelope->with(new SentStamp('Doctrine', 'async')));
+        $stack = $this->createMock(StackInterface::class);
+        $stack->method('next')->willReturn($nextMiddleware);
+        $this->middleware->handle($envelope, $stack);
+        $this->assertEquals(QueueJobLogStatus::QUEUED, $savedLogs[1]->getStatus());
+        $this->assertNull($savedLogs[1]->getCompletedAt());
+    }
+
+    public function testAMessageReceivedFromATransportIsLoggedAsCompleted(): void
+    {
+        $envelope = (new Envelope(new SendMailMessage(1)))
+            ->with(new SentStamp('Doctrine', 'async'), new ReceivedStamp('async'));
+        $savedLogs = [];
+        $this->repository->method('save')
+            ->willReturnCallback(function (QueueJobLog $log) use (&$savedLogs) {
+                $savedLogs[] = clone $log;
+            });
+        $nextMiddleware = $this->createMock(MiddlewareInterface::class);
+        $nextMiddleware->method('handle')->willReturn($envelope);
+        $stack = $this->createMock(StackInterface::class);
+        $stack->method('next')->willReturn($nextMiddleware);
+        $this->middleware->handle($envelope, $stack);
+        $this->assertEquals(QueueJobLogStatus::COMPLETED, $savedLogs[1]->getStatus());
+    }
+
+    public function testTheHandlerCanWriteToItsOwnLineAndKeepsWhatItWrote(): void
+    {
+        $context = new QueueJobLogContext();
+        $middleware = new QueueJobLogMiddleware($this->repository, $context);
+        $envelope = new Envelope(new SendMailMessage(1));
+        $savedLogs = [];
+        $this->repository->method('save')
+            ->willReturnCallback(function (QueueJobLog $log) use (&$savedLogs) {
+                $savedLogs[] = clone $log;
+            });
+        $nextMiddleware = $this->createMock(MiddlewareInterface::class);
+        $nextMiddleware->method('handle')
+            ->willReturnCallback(function () use ($context, $envelope) {
+                $context->current()->setStdout('cron output');
+                echo ' and an echo';
+                return $envelope;
+            });
+        $stack = $this->createMock(StackInterface::class);
+        $stack->method('next')->willReturn($nextMiddleware);
+        $middleware->handle($envelope, $stack);
+        $this->assertSame('cron output and an echo', $savedLogs[1]->getStdout());
+        $this->assertNull($context->current(), 'The line is left once handled.');
     }
 }

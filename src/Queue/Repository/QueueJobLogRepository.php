@@ -28,6 +28,24 @@ class QueueJobLogRepository extends ServiceEntityRepository
     }
 
     /**
+     * Writes the output so far straight to the line, outside the unit of work: called while a handler runs, at most
+     * every second.
+     *
+     * @param int    $queueJobLogId The line.
+     * @param string $stdout        All output so far.
+     *
+     * @return void
+     */
+    public function saveOutputSoFar(int $queueJobLogId, string $stdout): void
+    {
+        $this->getEntityManager()->getConnection()->update(
+            'queue_job_logs',
+            ['stdout' => $stdout],
+            ['id' => $queueJobLogId],
+        );
+    }
+
+    /**
      * @return QueueJobLog[]
      */
     public function findByStatus(QueueJobLogStatus $status): array

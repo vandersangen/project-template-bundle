@@ -11,18 +11,29 @@ use VanDerSangen\ProjectTemplateBundle\Cron\Repository\CronRepository;
 use VanDerSangen\ProjectTemplateBundle\Cron\Service\CronScheduleResolver;
 use VanDerSangen\ProjectTemplateBundle\Queue\Message\RunCronMessage;
 use VanDerSangen\ProjectTemplateBundle\Queue\ProcessRunnerInterface;
+use VanDerSangen\ProjectTemplateBundle\Queue\QueueJobLogContext;
+use VanDerSangen\ProjectTemplateBundle\Queue\Repository\QueueJobLogRepository;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Process\Process;
 
+/**
+ * Runs the cron's command. What it prints goes into the message's own queue_job_logs line while it runs, about once a
+ * second, so a run can be followed live; the newest output is kept when it grows past MAX_OUTPUT_CHARACTERS.
+ */
 #[AsMessageHandler]
 class RunCronMessageHandler implements AsyncMessageHandlerInterface
 {
+    /** The most output kept; beyond it the start is dropped, so the end (the result) always stays. */
+    private const int MAX_OUTPUT_CHARACTERS = 200_000;
+
     public function __construct(
         private readonly CronRepository $cronRepository,
         private readonly CronScheduleResolver $cronScheduleResolver,
         private readonly KernelInterface $kernel,
         private readonly ProcessRunnerInterface $processRunner,
+        private readonly QueueJobLogContext $queueJobLogContext,
+        private readonly QueueJobLogRepository $queueJobLogRepository,
     ) {
     }
 
@@ -51,7 +62,7 @@ class RunCronMessageHandler implements AsyncMessageHandlerInterface
         }
         $process = new Process($commandLine);
         $process->setTimeout(null);
-        if (!$this->processRunner->run($process)) {
+        if (!$this->processRunner->run($process, $this->writeOutputToTheLog())) {
             try {
                 $errorOutput = $process->getErrorOutput();
             } catch (\Exception) {
@@ -64,5 +75,26 @@ class RunCronMessageHandler implements AsyncMessageHandlerInterface
         $cron->setLastRunAt($now);
         $cron->setNextRunAt($this->cronScheduleResolver->getNextRunAt($cron, $now));
         $this->cronRepository->save($cron, true);
+    }
+
+    /**
+     * @return callable(string): void
+     */
+    private function writeOutputToTheLog(): callable
+    {
+        $queueJobLog = $this->queueJobLogContext->current();
+
+        return function (string $output) use ($queueJobLog): void {
+            if ($queueJobLog === null || $queueJobLog->getId() === null) {
+                return;
+            }
+
+            if (mb_strlen($output) > self::MAX_OUTPUT_CHARACTERS) {
+                $output = "… (start left out)\n" . mb_substr($output, -self::MAX_OUTPUT_CHARACTERS);
+            }
+
+            $queueJobLog->setStdout($output);
+            $this->queueJobLogRepository->saveOutputSoFar($queueJobLog->getId(), $output);
+        };
     }
 }

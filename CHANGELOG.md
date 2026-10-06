@@ -3,6 +3,23 @@
 Alle noemenswaardige wijzigingen per release. Consumers pinnen `^0.8`; elke tag bereikt
 alle consumers bij hun eerstvolgende `composer update`.
 
+## [Unreleased]
+
+- **Cron-uitvoer live in `queue_job_logs`.** `RunCronMessageHandler` gooide de uitvoer van het commando weg (alleen
+  bij een fout kwam de error-output in de exception); `stdout` bleef daardoor altijd leeg. De uitvoer (stdout en
+  stderr, zoals ze kwamen) gaat nu ongeveer elke seconde naar de eigen log-regel van het bericht, ook als het
+  commando daarna een tijd stil is, en blijft na afloop staan; boven 200.000 tekens valt het begin weg.
+  - `ProcessRunnerInterface::run()` kreeg een optionele `$onOutput`-callback. Zonder callback verandert er niets.
+  - Nieuw `Queue\QueueJobLogContext`: de log-regel van het bericht dat nu afgehandeld wordt, zodat een handler
+    naar zijn eigen regel kan schrijven. De middleware houdt hem bij; wat de handler erin zet blijft staan en wat
+    hij echo't komt erachter.
+  - `RunCronMessage` kreeg een optioneel `runId`. Het komt in `message_data`, zodat een met de hand gestarte run
+    terug te vinden en live te volgen is.
+- **Nieuwe status `queued` in `queue_job_logs`.** De middleware draait ook bij het dispatchen en schreef dan een
+  regel `completed`, terwijl er alleen iets op de wachtrij was gezet. Zo'n regel heet nu `queued` (zonder
+  `completed_at`); de worker schrijft bij het afhandelen zijn eigen regel, zoals altijd. Wie `completed` telde, telt
+  voortaan alleen echt afgehandelde berichten.
+
 ## [0.8.15] — 2026-09-22
 
 - **`bundle:database:copy` struikelt niet meer over foreign keys.** De tabellen worden gekopieerd in

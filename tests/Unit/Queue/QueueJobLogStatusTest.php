@@ -9,6 +9,11 @@ use PHPUnit\Framework\TestCase;
 
 class QueueJobLogStatusTest extends TestCase
 {
+    public function testQueuedValue(): void
+    {
+        $this->assertEquals('queued', QueueJobLogStatus::QUEUED->value);
+    }
+
     public function testStartedValue(): void
     {
         $this->assertEquals('started', QueueJobLogStatus::STARTED->value);
@@ -45,7 +50,8 @@ class QueueJobLogStatusTest extends TestCase
     public function testCasesReturnsAllValues(): void
     {
         $cases = QueueJobLogStatus::cases();
-        $this->assertCount(3, $cases);
+        $this->assertCount(4, $cases);
+        $this->assertContains(QueueJobLogStatus::QUEUED, $cases);
         $this->assertContains(QueueJobLogStatus::STARTED, $cases);
         $this->assertContains(QueueJobLogStatus::COMPLETED, $cases);
         $this->assertContains(QueueJobLogStatus::FAILED, $cases);

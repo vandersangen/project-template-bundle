@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace VanDerSangen\ProjectTemplateBundle\Queue\Repository;
 
+use DateTimeImmutable;
 use VanDerSangen\ProjectTemplateBundle\Queue\Entity\QueueJobLog;
 use VanDerSangen\ProjectTemplateBundle\Queue\Enum\QueueJobLogStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -25,6 +26,42 @@ class QueueJobLogRepository extends ServiceEntityRepository
         if ($flush) {
             $this->getEntityManager()->flush();
         }
+    }
+
+    /**
+     * Writes the output so far straight to the line, outside the unit of work: called while a handler runs, at most
+     * every second.
+     *
+     * @param int    $queueJobLogId The line.
+     * @param string $stdout        All output so far.
+     *
+     * @return void
+     */
+    public function saveOutputSoFar(int $queueJobLogId, string $stdout): void
+    {
+        $this->getEntityManager()->getConnection()->update(
+            'queue_job_logs',
+            ['stdout' => $stdout],
+            ['id' => $queueJobLogId],
+        );
+    }
+
+    /**
+     * Removes every line started before the moment: with cron output in it, the table otherwise grows with every run.
+     *
+     * @param DateTimeImmutable $moment Lines started before this go.
+     *
+     * @return int How many lines were removed.
+     */
+    public function removeStartedBefore(DateTimeImmutable $moment): int
+    {
+        $query = $this->createQueryBuilder('queueJobLog')
+            ->delete()
+            ->andWhere('queueJobLog.startedAt < :moment');
+
+        $query->setParameter('moment', $moment);
+
+        return (int) $query->getQuery()->execute();
     }
 
     /**

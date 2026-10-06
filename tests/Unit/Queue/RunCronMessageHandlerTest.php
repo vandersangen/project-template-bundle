@@ -12,7 +12,10 @@ use VanDerSangen\ProjectTemplateBundle\Cron\Service\CronScheduleResolver;
 use VanDerSangen\ProjectTemplateBundle\Queue\Handler\AsyncMessageHandlerInterface;
 use VanDerSangen\ProjectTemplateBundle\Queue\Handler\RunCronMessageHandler;
 use VanDerSangen\ProjectTemplateBundle\Queue\Message\RunCronMessage;
+use VanDerSangen\ProjectTemplateBundle\Queue\Entity\QueueJobLog;
 use VanDerSangen\ProjectTemplateBundle\Queue\ProcessRunnerInterface;
+use VanDerSangen\ProjectTemplateBundle\Queue\QueueJobLogContext;
+use VanDerSangen\ProjectTemplateBundle\Queue\Repository\QueueJobLogRepository;
 use Symfony\Component\HttpKernel\KernelInterface;
 
 class RunCronMessageHandlerTest extends TestCase
@@ -21,6 +24,8 @@ class RunCronMessageHandlerTest extends TestCase
     private CronScheduleResolver $cronScheduleResolver;
     private KernelInterface $kernel;
     private ProcessRunnerInterface $processRunner;
+    private QueueJobLogContext $queueJobLogContext;
+    private QueueJobLogRepository $queueJobLogRepository;
     private RunCronMessageHandler $handler;
 
     protected function setUp(): void
@@ -29,11 +34,15 @@ class RunCronMessageHandlerTest extends TestCase
         $this->cronScheduleResolver = $this->createMock(CronScheduleResolver::class);
         $this->kernel = $this->createMock(KernelInterface::class);
         $this->processRunner = $this->createMock(ProcessRunnerInterface::class);
+        $this->queueJobLogContext = new QueueJobLogContext();
+        $this->queueJobLogRepository = $this->createMock(QueueJobLogRepository::class);
         $this->handler = new RunCronMessageHandler(
             $this->cronRepository,
             $this->cronScheduleResolver,
             $this->kernel,
-            $this->processRunner
+            $this->processRunner,
+            $this->queueJobLogContext,
+            $this->queueJobLogRepository
         );
     }
 
@@ -127,5 +136,85 @@ class RunCronMessageHandlerTest extends TestCase
         $this->assertStringContainsString('--opt=val', $cmd);
         $this->assertStringContainsString('/project/bin/console', $cmd);
         $this->assertStringContainsString('app:run', $cmd);
+    }
+
+    public function testOutputGoesIntoTheLogLineOfTheMessageWhileItRuns(): void
+    {
+        $cron = new Cron();
+        $cron->setCommand('list');
+        $cron->setSchedule('* * * * *');
+        $this->cronRepository->method('find')->willReturn($cron);
+        $this->kernel->method('getProjectDir')->willReturn('/app');
+        $this->cronScheduleResolver->method('getNextRunAt')->willReturn(new DateTimeImmutable());
+        $queueJobLog = new QueueJobLog();
+        $idProperty = new \ReflectionProperty(QueueJobLog::class, 'id');
+        $idProperty->setValue($queueJobLog, 12);
+        $this->queueJobLogContext->enter($queueJobLog);
+        $this->processRunner->method('run')
+            ->willReturnCallback(function ($process, ?callable $onOutput) {
+                $onOutput('line 1');
+                $onOutput("line 1\nline 2");
+                return true;
+            });
+        $saved = [];
+        $this->queueJobLogRepository->expects($this->exactly(2))
+            ->method('saveOutputSoFar')
+            ->willReturnCallback(function (int $id, string $stdout) use (&$saved) {
+                $saved[] = [$id, $stdout];
+            });
+        ($this->handler)(new RunCronMessage(1));
+        $this->assertSame([[12, 'line 1'], [12, "line 1\nline 2"]], $saved);
+        $this->assertSame("line 1\nline 2", $queueJobLog->getStdout());
+    }
+
+    public function testOutputIsNotWrittenOutsideTheMiddleware(): void
+    {
+        $cron = new Cron();
+        $cron->setCommand('list');
+        $cron->setSchedule('* * * * *');
+        $this->cronRepository->method('find')->willReturn($cron);
+        $this->kernel->method('getProjectDir')->willReturn('/app');
+        $this->cronScheduleResolver->method('getNextRunAt')->willReturn(new DateTimeImmutable());
+        $this->processRunner->method('run')
+            ->willReturnCallback(function ($process, ?callable $onOutput) {
+                $onOutput('line 1');
+                return true;
+            });
+        $this->queueJobLogRepository->expects($this->never())->method('saveOutputSoFar');
+        ($this->handler)(new RunCronMessage(1));
+    }
+
+    public function testOutputPastTheLimitKeepsTheEndAndWholeCharacters(): void
+    {
+        $handler = new RunCronMessageHandler(
+            $this->cronRepository,
+            $this->cronScheduleResolver,
+            $this->kernel,
+            $this->processRunner,
+            $this->queueJobLogContext,
+            $this->queueJobLogRepository,
+            1024
+        );
+        $cron = new Cron();
+        $cron->setCommand('list');
+        $cron->setSchedule('* * * * *');
+        $this->cronRepository->method('find')->willReturn($cron);
+        $this->kernel->method('getProjectDir')->willReturn('/app');
+        $this->cronScheduleResolver->method('getNextRunAt')->willReturn(new DateTimeImmutable());
+        $queueJobLog = new QueueJobLog();
+        (new \ReflectionProperty(QueueJobLog::class, 'id'))->setValue($queueJobLog, 12);
+        $this->queueJobLogContext->enter($queueJobLog);
+        $this->processRunner->method('run')
+            ->willReturnCallback(function ($process, ?callable $onOutput) {
+                $onOutput('begin' . str_repeat('é', 1000) . 'einde');
+                return true;
+            });
+        ($handler)(new RunCronMessage(1));
+        $stdout = (string) $queueJobLog->getStdout();
+        $this->assertStringStartsWith('… (start left out)', $stdout);
+        $this->assertStringEndsWith('einde', $stdout);
+        $this->assertStringNotContainsString('begin', $stdout);
+        $this->assertTrue(mb_check_encoding($stdout, 'UTF-8'), 'The cut falls between characters.');
+        $this->assertLessThanOrEqual(1024 + 30, strlen($stdout));
     }
 }

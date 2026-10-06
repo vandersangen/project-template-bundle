@@ -16,6 +16,12 @@ class RunCronMessageTest extends TestCase
         $this->assertSame(42, $message->getCronId());
     }
 
+    public function testRunIdIsOptional(): void
+    {
+        $this->assertNull((new RunCronMessage(1))->getRunId());
+        $this->assertSame('run-7', (new RunCronMessage(1, 'run-7'))->getRunId());
+    }
+
     public function testImplementsAsyncMessageInterface(): void
     {
         $message = new RunCronMessage(1);

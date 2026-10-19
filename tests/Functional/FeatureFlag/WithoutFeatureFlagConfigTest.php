@@ -84,6 +84,36 @@ class WithoutFeatureFlagConfigTest extends WebTestCase
         $resolver->resolveAudienceOfCurrentRequest();
     }
 
+    public function testTheListOfASignedInUserIsEmpty(): void
+    {
+        $client = static::createClient();
+        $client->request(
+            Request::METHOD_POST,
+            '/api/auth/register',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode([
+                'email' => 'no-flags-' . uniqid() . '@example.com',
+                'password' => 'password123',
+                'firstName' => 'No',
+                'lastName' => 'Flags',
+            ]),
+        );
+        $token = json_decode((string) $client->getResponse()->getContent(), true)['token'];
+
+        $client->request(
+            Request::METHOD_GET,
+            '/api/feature-flags',
+            [],
+            [],
+            ['HTTP_AUTHORIZATION' => 'Bearer ' . $token],
+        );
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSame('{"featureFlags":[]}', $client->getResponse()->getContent());
+    }
+
     public function testARouteWithoutTheAttributeStillAnswers(): void
     {
         $client = static::createClient();

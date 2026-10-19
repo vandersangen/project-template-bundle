@@ -16,3 +16,5 @@ services:
         arguments:
             $httpClient: '@http_client'
             $apiVersion: '%project_template.shopify.api_version%'
+
+    VanDerSangen\ProjectTemplateBundle\Tests\App\Security\TestApiUserAuthenticator: ~

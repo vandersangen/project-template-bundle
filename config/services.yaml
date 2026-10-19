@@ -72,6 +72,10 @@ services:
         resource: '../src/Shopify/Controller/'
         tags: ['controller.service_arguments']
 
+    VanDerSangen\ProjectTemplateBundle\FeatureFlag\Controller\:
+        resource: '../src/FeatureFlag/Controller/'
+        tags: ['controller.service_arguments']
+
     VanDerSangen\ProjectTemplateBundle\Routing\ProjectTemplateRouteLoader:
         tags: [routing.route_loader]
 

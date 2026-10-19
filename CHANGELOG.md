@@ -5,6 +5,18 @@ alle consumers bij hun eerstvolgende `composer update`.
 
 ## [Unreleased]
 
+- **Nieuwe module FeatureFlag: flags per doelgroep.** Een project zet delen van de applicatie per doelgroep aan of uit,
+  per omgeving (`docs/feature-flags.md`). Het project levert zijn flags en doelgroepen als backed enums
+  (`FeatureFlagInterface`, `FeatureFlagAudienceInterface`) in `project_template.feature_flags.flags`/`.audiences`;
+  zonder die config verandert er niets. `FeatureFlagService` (`isOnFor`, `isOnForBackgroundWork`, `listFlagsOnFor`,
+  `switchFlag`) cachet in `cache.app`, `#[RequiresFeatureFlag]` geeft 404 zolang een flag uit staat, en er zijn twee
+  endpoints: `GET /api/feature-flags` en `GET`/`PUT /api/super-admin/feature-flags[/{key}]` (het project beschermt
+  ze).
+  - **Let op, migratie:** `Version20261019120000` maakt de tabel `feature_flags` aan in de database van elke consumer.
+    Heeft een project al een tabel met die naam, hernoem of verwijder die dan eerst. Een project met een eigen kopie
+    (RENCO) verwijdert die in dezelfde commit als de bundle-update.
+  - De routes zitten in `config/routes.yaml` en komen dus via `ProjectTemplateRouteLoader` in elk project dat die
+    gebruikt.
 - **Cron-uitvoer live in `queue_job_logs`.** `RunCronMessageHandler` gooide de uitvoer van het commando weg (alleen
   bij een fout kwam de error-output in de exception); `stdout` bleef daardoor altijd leeg. De uitvoer (stdout en
   stderr, zoals ze kwamen) gaat nu ongeveer elke seconde naar de eigen log-regel van het bericht, ook als het

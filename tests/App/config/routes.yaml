@@ -4,3 +4,10 @@ project_template_bundle:
     type: service
     prefix: /
 
+
+# Test-only controllers (feature flag attribute)
+test_controllers:
+    resource:
+        path: ../Controller/
+        namespace: VanDerSangen\ProjectTemplateBundle\Tests\App\Controller
+    type: attribute

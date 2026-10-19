@@ -16,6 +16,12 @@ use VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagInterface;
  */
 final readonly class FeatureFlagRegistry
 {
+    /** The length of feature_flags.feature_flag. */
+    public const int MAX_FLAG_KEY_LENGTH = 50;
+
+    /** The length of feature_flags.audience. */
+    public const int MAX_AUDIENCE_KEY_LENGTH = 20;
+
     /** @var list<FeatureFlagInterface> */
     private array $flags;
 
@@ -59,13 +65,42 @@ final readonly class FeatureFlagRegistry
      * @param string|null $flagEnumClass     The enum of the project's flags, or null without flags.
      * @param string|null $audienceEnumClass The enum of the project's audiences, or null without audiences.
      *
-     * @throws LogicException When a configured class is no backed enum implementing its interface, or two of its
-     *                        cases share a key.
+     * @throws LogicException When a configured class is no backed enum implementing its interface, two of its cases
+     *                        share a key, a key does not fit its column, flags are configured without audiences, or
+     *                        a flag's background audience is no case of the configured audiences.
      */
     public static function validateConfiguration(?string $flagEnumClass, ?string $audienceEnumClass): void
     {
-        self::validateEnumClass($flagEnumClass, 'flags', FeatureFlagInterface::class);
-        self::validateEnumClass($audienceEnumClass, 'audiences', FeatureFlagAudienceInterface::class);
+        self::validateEnumClass($flagEnumClass, 'flags', FeatureFlagInterface::class, self::MAX_FLAG_KEY_LENGTH);
+        self::validateEnumClass(
+            $audienceEnumClass,
+            'audiences',
+            FeatureFlagAudienceInterface::class,
+            self::MAX_AUDIENCE_KEY_LENGTH,
+        );
+
+        if ($flagEnumClass === null) {
+            return;
+        }
+
+        if ($audienceEnumClass === null) {
+            throw new LogicException(sprintf(
+                'project_template.feature_flags.flags names "%s"; configure %s too.',
+                $flagEnumClass,
+                'project_template.feature_flags.audiences',
+            ));
+        }
+
+        foreach (self::casesOf($flagEnumClass) as $flag) {
+            if ($flag instanceof FeatureFlagInterface && !$flag->backgroundAudience() instanceof $audienceEnumClass) {
+                throw new LogicException(sprintf(
+                    'The background audience of %s::%s must be a case of %s, the configured audiences.',
+                    $flagEnumClass,
+                    $flag->name,
+                    $audienceEnumClass,
+                ));
+            }
+        }
     }
 
     /**
@@ -120,11 +155,17 @@ final readonly class FeatureFlagRegistry
      * @param string|null $enumClass The configured class, or null when nothing is configured.
      * @param string      $option    The name of the config option, for the message.
      * @param string      $interface The interface the enum must implement.
+     * @param int         $maxLength The most characters a key may have, the length of its column.
      *
-     * @throws LogicException When the class is no backed enum implementing the interface, or two cases share a key.
+     * @throws LogicException When the class is no backed enum implementing the interface, two cases share a key, or a
+     *                        key is too long.
      */
-    private static function validateEnumClass(?string $enumClass, string $option, string $interface): void
-    {
+    private static function validateEnumClass(
+        ?string $enumClass,
+        string $option,
+        string $interface,
+        int $maxLength,
+    ): void {
         if ($enumClass === null) {
             return;
         }
@@ -146,6 +187,16 @@ final readonly class FeatureFlagRegistry
             $key = $case instanceof FeatureFlagInterface || $case instanceof FeatureFlagAudienceInterface
                 ? $case->key()
                 : '';
+
+            if (mb_strlen($key) > $maxLength) {
+                throw new LogicException(sprintf(
+                    'project_template.feature_flags.%s names "%s", in which the key "%s" is longer than %d characters.',
+                    $option,
+                    $enumClass,
+                    $key,
+                    $maxLength,
+                ));
+            }
 
             if (isset($keys[$key])) {
                 throw new LogicException(sprintf(

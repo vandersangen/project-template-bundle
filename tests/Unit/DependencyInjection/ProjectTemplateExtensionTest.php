@@ -14,6 +14,8 @@ use VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagInterface;
 use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlag;
 use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlagAudience;
 use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\DuplicateKeyFeatureFlag;
+use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\ForeignBackgroundAudienceFeatureFlag;
+use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\LongKeyAudience;
 
 class ProjectTemplateExtensionTest extends TestCase
 {
@@ -141,6 +143,36 @@ class ProjectTemplateExtensionTest extends TestCase
 
         $this->extension->load(
             $this->featureFlagConfig(DuplicateKeyFeatureFlag::class, TestFeatureFlagAudience::class),
+            $this->container,
+        );
+    }
+
+    public function testTheBuildFailsOnFlagsWithoutAudiences(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('project_template.feature_flags.audiences');
+
+        $this->extension->load($this->featureFlagConfig(TestFeatureFlag::class, null), $this->container);
+    }
+
+    public function testTheBuildFailsOnABackgroundAudienceOfAnotherEnum(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage(ForeignBackgroundAudienceFeatureFlag::class);
+
+        $this->extension->load(
+            $this->featureFlagConfig(ForeignBackgroundAudienceFeatureFlag::class, TestFeatureFlagAudience::class),
+            $this->container,
+        );
+    }
+
+    public function testTheBuildFailsOnAnAudienceKeyThatDoesNotFitTheColumn(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage(LongKeyAudience::class);
+
+        $this->extension->load(
+            $this->featureFlagConfig(TestFeatureFlag::class, LongKeyAudience::class),
             $this->container,
         );
     }

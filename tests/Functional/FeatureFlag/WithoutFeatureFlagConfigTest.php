@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace VanDerSangen\ProjectTemplateBundle\Tests\Functional\FeatureFlag;
 
-use Doctrine\DBAL\Connection;
-use Doctrine\ORM\EntityManagerInterface;
 use LogicException;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,6 +20,8 @@ use VanDerSangen\ProjectTemplateBundle\Tests\App\WithoutFeatureFlagsTestKernel;
  */
 class WithoutFeatureFlagConfigTest extends WebTestCase
 {
+    use FeatureFlagWebTestTrait;
+
     protected static function getKernelClass(): string
     {
         return WithoutFeatureFlagsTestKernel::class;
@@ -114,16 +114,33 @@ class WithoutFeatureFlagConfigTest extends WebTestCase
         $this->assertSame('{"featureFlags":[]}', $client->getResponse()->getContent());
     }
 
+    public function testTheSuperAdminListIsEmptyAndASwitchIsNotFound(): void
+    {
+        $client = static::createClient();
+        $superAdmin = $this->createSuperAdmin();
+        $header = ['CONTENT_TYPE' => 'application/json', 'HTTP_X_TEST_USER' => $superAdmin];
+
+        $client->request(Request::METHOD_GET, '/api/super-admin/feature-flags', [], [], $header);
+        $this->assertResponseIsSuccessful();
+        $this->assertSame('{"featureFlags":[]}', $client->getResponse()->getContent());
+
+        $client->request(
+            Request::METHOD_PUT,
+            '/api/super-admin/feature-flags/anything',
+            [],
+            [],
+            $header,
+            '{"audience": "klanten", "on": true}',
+        );
+        $this->assertResponseStatusCodeSame(404);
+        $this->assertSame(0, (int) $this->connection()->fetchOne('SELECT COUNT(1) FROM feature_flags'));
+    }
+
     public function testARouteWithoutTheAttributeStillAnswers(): void
     {
         $client = static::createClient();
         $client->request(Request::METHOD_GET, '/super-admin/login');
 
         $this->assertResponseIsSuccessful();
-    }
-
-    private function connection(): Connection
-    {
-        return static::getContainer()->get(EntityManagerInterface::class)->getConnection();
     }
 }

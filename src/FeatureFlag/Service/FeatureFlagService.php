@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service;
 
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use Psr\Cache\InvalidArgumentException;
 use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Entity\FeatureFlagSetting;
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagAudienceInterface;
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagInterface;
@@ -24,10 +27,17 @@ final readonly class FeatureFlagService
 {
     private const string CACHE_KEY = 'project_template_feature_flag_states';
 
+    /**
+     * A backstop only: every change clears the cache at once. Should a clear race a transaction that was not
+     * committed yet, the stale states last at most this long.
+     */
+    private const int CACHE_LIFETIME_SECONDS = 3600;
+
     public function __construct(
         private FeatureFlagSettingRepository $featureFlagSettingRepository,
         private FeatureFlagRegistry $featureFlagRegistry,
         private EntityManagerInterface $entityManager,
+        private ManagerRegistry $managerRegistry,
         private CacheInterface $cache,
     ) {
     }
@@ -109,15 +119,10 @@ final readonly class FeatureFlagService
         $setting = $this->featureFlagSettingRepository->findSettingOf($featureFlag->key(), $audience->key());
 
         if ($setting === null) {
-            $setting = new FeatureFlagSetting($featureFlag->key(), $audience->key(), $on, $changedBy);
-            $this->entityManager->persist($setting);
-            $this->entityManager->flush();
-            $this->clearCachedStates();
-
-            return;
+            $setting = $this->insertFirstSetting($featureFlag, $audience, $on, $changedBy);
         }
 
-        if ($setting->isOn() === $on) {
+        if ($setting === null || $setting->isOn() === $on) {
             $this->clearCachedStates();
 
             return;
@@ -139,12 +144,62 @@ final readonly class FeatureFlagService
     }
 
     /**
+     * Stores the first switch of a flag for an audience.
+     *
+     * When another process stored it between our read and our insert, the unique key refuses ours and the failed
+     * flush closes the entity manager. It is then reset (the service keeps the same, lazy, instance) and the row of
+     * the other process is returned, for the caller to apply the switch to it.
+     *
+     * @param FeatureFlagInterface         $featureFlag The flag.
+     * @param FeatureFlagAudienceInterface $audience    The audience whose switch changes.
+     * @param bool                         $on          Whether the flag is on for the audience from now on.
+     * @param string                       $changedBy   Who switched it.
+     *
+     * @return FeatureFlagSetting|null Null when our row was stored; the row of the other process otherwise.
+     *
+     * @throws UniqueConstraintViolationException When the other row cannot be found after all.
+     */
+    private function insertFirstSetting(
+        FeatureFlagInterface $featureFlag,
+        FeatureFlagAudienceInterface $audience,
+        bool $on,
+        string $changedBy,
+    ): ?FeatureFlagSetting {
+        try {
+            $setting = new FeatureFlagSetting($featureFlag->key(), $audience->key(), $on, $changedBy);
+            $this->entityManager->persist($setting);
+            $this->entityManager->flush();
+
+            return null;
+        } catch (UniqueConstraintViolationException $exception) {
+            if (!$this->entityManager->isOpen()) {
+                $this->managerRegistry->resetManager();
+            }
+
+            return $this->featureFlagSettingRepository->findSettingOf($featureFlag->key(), $audience->key())
+                ?? throw $exception;
+        }
+    }
+
+    /**
      * @return array<string, array<string, bool>>
      *
      * @throws InvalidArgumentException When the cache refuses the key.
      */
     private function findStoredStates(): array
     {
-        return $this->cache->get(self::CACHE_KEY, $this->featureFlagSettingRepository->findStoredStates(...));
+        return $this->cache->get(self::CACHE_KEY, $this->readStoredStatesForCache(...));
+    }
+
+    /**
+     * @param ItemInterface $item The cache item the states are stored in.
+     *
+     * @return array<string, array<string, bool>>
+     */
+    private function readStoredStatesForCache(ItemInterface $item): array
+    {
+        $item->expiresAfter(self::CACHE_LIFETIME_SECONDS);
+
+        return $this->featureFlagSettingRepository->findStoredStates();
     }
 }

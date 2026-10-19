@@ -16,6 +16,9 @@ use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlagAudi
 use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\DuplicateKeyAudience;
 use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\DuplicateKeyFeatureFlag;
 use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\EnumWithoutInterface;
+use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\ForeignBackgroundAudienceFeatureFlag;
+use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\LongKeyAudience;
+use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\LongKeyFeatureFlag;
 use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\UnitEnumFeatureFlag;
 
 class FeatureFlagRegistryTest extends TestCase
@@ -115,6 +118,49 @@ class FeatureFlagRegistryTest extends TestCase
         $this->expectExceptionMessage('"same"');
 
         new FeatureFlagRegistry(TestFeatureFlag::class, DuplicateKeyAudience::class);
+    }
+
+    public function testRefusesFlagsWithoutAudiences(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('project_template.feature_flags.audiences');
+
+        new FeatureFlagRegistry(TestFeatureFlag::class, null);
+    }
+
+    public function testAcceptsAudiencesWithoutFlags(): void
+    {
+        $registry = new FeatureFlagRegistry(null, TestFeatureFlagAudience::class);
+
+        $this->assertSame([], $registry->flags());
+        $this->assertSame(TestFeatureFlagAudience::cases(), $registry->audiences());
+    }
+
+    public function testRefusesABackgroundAudienceOfAnotherEnum(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage(ForeignBackgroundAudienceFeatureFlag::class);
+        $this->expectExceptionMessage(TestFeatureFlagAudience::class);
+
+        new FeatureFlagRegistry(ForeignBackgroundAudienceFeatureFlag::class, TestFeatureFlagAudience::class);
+    }
+
+    public function testRefusesAFlagKeyLongerThanFiftyCharacters(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('a_flag_key_of_fifty_one_characters_which_is_too_lng');
+        $this->expectExceptionMessage('50');
+
+        new FeatureFlagRegistry(LongKeyFeatureFlag::class, TestFeatureFlagAudience::class);
+    }
+
+    public function testRefusesAnAudienceKeyLongerThanTwentyCharacters(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('audience_key_too_long');
+        $this->expectExceptionMessage('20');
+
+        new FeatureFlagRegistry(TestFeatureFlag::class, LongKeyAudience::class);
     }
 
     public function testTheDefaultResolverGivesTheFirstConfiguredAudience(): void

@@ -31,10 +31,15 @@ project_template:
         audiences: App\FeatureFlag\Enum\FeatureFlagAudience
 ```
 
-Beide zijn optioneel. Zonder deze config heeft het project geen flags: elke controle geeft `false`, de lijsten zijn
-leeg en er verandert niets. Een verkeerde config (geen backed enum, de interface niet geïmplementeerd, of twee cases
-met dezelfde `key()`) laat het bouwen van de container falen (`cache:clear`, deploy) met een melding die de optie, de
-class en de interface noemt.
+Beide zijn optioneel (zie [Zonder config](#zonder-config)), maar `flags` zonder `audiences` mag niet. De config wordt
+gecontroleerd bij het bouwen van de container (`cache:clear`, deploy); een fout laat dat bouwen falen, met een melding
+die zegt wat er mis is en welke class het betreft. Fout is:
+
+- een class die geen backed enum is, of de interface niet implementeert (de melding noemt dan ook de interface);
+- twee cases met dezelfde `key()`;
+- een key van een flag langer dan 50 tekens, of van een doelgroep langer dan 20 (de lengte van de kolommen);
+- `flags` zonder `audiences`;
+- een flag waarvan `backgroundAudience()` geen case is van de geconfigureerde doelgroepen-enum.
 
 ```php
 enum FeatureFlag: string implements FeatureFlagInterface
@@ -93,6 +98,10 @@ VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagAudienceResolverInterf
     alias: App\FeatureFlag\Service\RoleBasedAudienceResolver
 ```
 
+**Let op:** de resolver draait voor `#[RequiresFeatureFlag]` op `kernel.controller`, dus **vóór** `#[IsGranted]` op de
+controller. Hij moet dus ook een verzoek zonder ingelogde gebruiker aankunnen (geef dan bijvoorbeeld de doelgroep met
+de minste rechten terug), en mag daar niet op stuklopen.
+
 ## Gebruik in code
 
 ```php
@@ -148,12 +157,35 @@ importeert, importeert `src/FeatureFlag/Controller/` zelf. **Het project bescher
   De PUT krijgt `{"audience": "leden", "on": true}` en antwoordt dezelfde lijst. `updatedBy` is de
   `getUserIdentifier()` van de ingelogde super admin. Onbekende flag: 404. Doelgroep ontbreekt of is onbekend: 422
   `{"errors": {"audience": "Kies voor wie."}}`. `on` ontbreekt of is geen boolean: 422
-  `{"errors": {"on": "Kies aan of uit."}}`. In die gevallen wordt niets opgeslagen.
+  `{"errors": {"on": "Kies aan of uit."}}`. Een body die geen JSON-object is (kapotte JSON, lege body, een losse
+  string): 400. In al die gevallen wordt niets opgeslagen.
 
 ## Cache
 
 De opgeslagen standen staan in de app-cache (`cache.app`, sleutel `project_template_feature_flag_states`). Ze worden
 gewist na elke `switchFlag()` en door een entity listener bij elke persist, update of remove van een
-`FeatureFlagSetting`, ook als die buiten de service om via de ORM gebeurt. Een omzetting telt dus meteen, ook in de
-worker, mits die dezelfde cache-pool deelt (Redis in productie). Wie de tabel met de hand (SQL) wijzigt, wist de cache
-zelf: `FeatureFlagService::clearCachedStates()` of `cache:pool:clear cache.app`.
+`FeatureFlagSetting`, ook als die buiten de service om via de ORM gebeurt. Een omzetting telt dus meteen.
+
+- **Eis:** een project dat flags omzet heeft één gedeelde `cache.app` (bijvoorbeeld Redis) voor alle api- en
+  worker-processen. Met een cache per proces (filesystem per pod, APCu) wist een omzetting alleen de cache van het
+  proces dat hem deed; de andere lezen tot een uur lang de oude stand.
+- **Vangnet:** de standen verlopen na een uur. Valt het wissen van de cache samen met een transactie die nog niet is
+  gecommit, dan kan een ander proces net de oude stand opnieuw in de cache zetten; die blijft dan hooguit een uur staan.
+- Wie de tabel met de hand (SQL) wijzigt, wist de cache zelf: `FeatureFlagService::clearCachedStates()` of
+  `cache:pool:clear cache.app`.
+
+Zetten twee processen tegelijk een flag voor het eerst om, dan weigert de unieke sleutel de tweede regel. De service
+vangt dat af: hij reset de entity manager, leest de regel van de ander en past daar de omzetting op toe (geen 500).
+
+## Zonder config
+
+Een project dat de bundle bijwerkt maar geen `feature_flags` configureert, merkt dit:
+
+- De migratie maakt een lege tabel `feature_flags` aan.
+- Laadt het project de routes via `ProjectTemplateRouteLoader`, dan bestaan de endpoints ook daar:
+  - `GET /api/feature-flags` geeft een ingelogde gebruiker `{"featureFlags": []}`;
+  - `/api/super-admin/feature-flags` geeft een gewone gebruiker 403; een super admin krijgt op GET
+    `{"featureFlags": []}` en op een PUT 404.
+- Wil een project die routes niet, dan gebruikt het de route loader niet en importeert het alleen de mappen met
+  controllers die het wel wil (zoals RENCO doet).
+- Elke controle geeft `false`; `#[RequiresFeatureFlag]` komt er niet voor.

@@ -6,9 +6,12 @@ namespace VanDerSangen\ProjectTemplateBundle\Tests\Functional\FeatureFlag;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Entity\FeatureFlagSetting;
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Repository\FeatureFlagSettingRepository;
+use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\FeatureFlagRegistry;
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\FeatureFlagService;
 use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlag;
 use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlagAudience;
@@ -249,12 +252,71 @@ class FeatureFlagServiceTest extends KernelTestCase
         );
     }
 
-    private function insertRow(string $featureFlagKey, string $audienceKey): void
+    public function testAFirstSwitchThatLosesTheRaceToAnotherProcessIsAppliedAsAnUpdate(): void
+    {
+        $container = static::getContainer();
+        $featureFlagService = new FeatureFlagService(
+            $this->repositoryThatMissesTheFirstLookup(),
+            $container->get(FeatureFlagRegistry::class),
+            $this->entityManager,
+            $container->get(ManagerRegistry::class),
+            $container->get(CacheInterface::class),
+        );
+        $this->insertRow('new_dashboard', 'klanten', false);
+
+        $featureFlagService->switchFlag(
+            TestFeatureFlag::NEW_DASHBOARD,
+            TestFeatureFlagAudience::CUSTOMERS,
+            true,
+            'lars@example.com',
+        );
+
+        $this->assertSame(
+            [['is_on' => 1, 'updated_by' => 'lars@example.com']],
+            $this->connection->fetchAllAssociative('SELECT is_on, updated_by FROM feature_flags'),
+        );
+        $this->assertTrue(
+            $this->featureFlagService->isOnFor(TestFeatureFlag::NEW_DASHBOARD, TestFeatureFlagAudience::CUSTOMERS),
+        );
+
+        $this->entityManager->persist(new FeatureFlagSetting('nightly_report', 'klanten', true, 'lars@example.com'));
+        $this->entityManager->flush();
+        $this->assertSame(2, (int) $this->connection->fetchOne('SELECT COUNT(1) FROM feature_flags'));
+    }
+
+    /**
+     * The row is stored by another process between the read and the insert of switchFlag(): the first lookup misses
+     * it, as it would in that race.
+     */
+    private function repositoryThatMissesTheFirstLookup(): FeatureFlagSettingRepository
+    {
+        $container = static::getContainer();
+
+        return new class (
+            $container->get(ManagerRegistry::class),
+            $container->get(FeatureFlagRegistry::class),
+        ) extends FeatureFlagSettingRepository {
+            private bool $looked = false;
+
+            public function findSettingOf(string $flagKey, string $audienceKey): ?FeatureFlagSetting
+            {
+                if (!$this->looked) {
+                    $this->looked = true;
+
+                    return null;
+                }
+
+                return parent::findSettingOf($flagKey, $audienceKey);
+            }
+        };
+    }
+
+    private function insertRow(string $featureFlagKey, string $audienceKey, bool $on = true): void
     {
         $this->connection->insert('feature_flags', [
             'feature_flag' => $featureFlagKey,
             'audience' => $audienceKey,
-            'is_on' => 1,
+            'is_on' => (int) $on,
             'updated_at' => '2026-10-19 12:00:00',
             'updated_by' => 'rick@example.com',
         ]);

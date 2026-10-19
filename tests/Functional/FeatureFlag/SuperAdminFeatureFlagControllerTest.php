@@ -170,6 +170,23 @@ class SuperAdminFeatureFlagControllerTest extends WebTestCase
         $this->assertNothingStored();
     }
 
+    public function testAMalformedBodyIsABadRequestAndNothingStored(): void
+    {
+        foreach (['{"audience": "klanten", "on": tru', '', '"klanten"'] as $content) {
+            $this->client->request(
+                Request::METHOD_PUT,
+                self::PATH . '/new_dashboard',
+                [],
+                [],
+                ['CONTENT_TYPE' => 'application/json', self::userHeader() => $this->superAdmin],
+                $content,
+            );
+
+            $this->assertResponseStatusCodeSame(400);
+            $this->assertNothingStored();
+        }
+    }
+
     public function testAPlainUserIsRefused(): void
     {
         $email = $this->registerUser($this->client)['email'];

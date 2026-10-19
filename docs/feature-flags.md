@@ -174,10 +174,13 @@ gewist na elke `switchFlag()` en door een entity listener bij elke persist, upda
 - Wie de tabel met de hand (SQL) wijzigt, wist de cache zelf: `FeatureFlagService::clearCachedStates()` of
   `cache:pool:clear cache.app`.
 
-De eerste omzetting van een flag voor een doelgroep reserveert de regel met `INSERT IGNORE` (uit, wat hetzelfde
-betekent als geen regel) en zet hem daarna via de ORM om, met een schrijflock. Twee processen die tegelijk voor het
-eerst omzetten botsen dus niet op de unieke sleutel; voor entity listeners is elke omzetting een update. Een eerste
-omzetting naar uit is daardoor geen wijziging en wordt niet geflusht.
+`switchFlag()` reserveert de regel binnen één transactie met `INSERT IGNORE` in de **tegenovergestelde** stand, leest
+hem met een schrijflock en zet hem via de ORM om. Een eerste omzetting is daardoor altijd een echte wijziging (een
+update) voor entity listeners en een onFlush-audit, ook naar uit. Niemand buiten de transactie ziet de gereserveerde
+stand, en twee processen die tegelijk voor het eerst omzetten botsen niet op de unieke sleutel: de tweede wacht tot de
+eerste gecommit is en past dan de opgeslagen regel aan. `changedBy` is hooguit 180 tekens; langer geeft een
+`\InvalidArgumentException` voordat er iets geschreven wordt. De service is de schrijver van `FeatureFlagSetting`: een
+ongeflushte wijziging die de aanroeper zelf aan dezelfde instelling deed, gaat verloren.
 
 ## Zonder config
 

@@ -33,6 +33,9 @@ final readonly class FeatureFlagService
      */
     private const int CACHE_LIFETIME_SECONDS = 3600;
 
+    /** The length of feature_flags.updated_by. */
+    private const int MAX_CHANGED_BY_LENGTH = 180;
+
     public function __construct(
         private FeatureFlagSettingRepository $featureFlagSettingRepository,
         private FeatureFlagRegistry $featureFlagRegistry,
@@ -102,17 +105,22 @@ final readonly class FeatureFlagService
      * Stores the switch and clears the cached states. When the state changes it flushes the entity manager, so
      * whatever else is pending in the unit of work is written with it; the same state again flushes nothing.
      *
-     * The row is first reserved with INSERT IGNORE (off, which means the same as no row), so a first switch by two
-     * processes at once cannot fail on the unique key. It is then read with a write lock and switched through the
-     * ORM, so entity listeners see an update.
+     * In one transaction, the row is reserved with INSERT IGNORE in the opposite state, read with a write lock and
+     * switched through the ORM. A first switch is therefore always an update for entity listeners (and an onFlush
+     * audit), also to off; nobody outside the transaction sees the reserved state, and a competing first switch waits
+     * on the unique key and then updates the committed row.
+     *
+     * This service is the writer of FeatureFlagSetting: the locking read refreshes the entity, so an unflushed change
+     * the caller made to that same setting is lost.
      *
      * @param FeatureFlagInterface         $featureFlag The flag.
      * @param FeatureFlagAudienceInterface $audience    The audience whose switch changes.
      * @param bool                         $on          Whether the flag is on for the audience from now on.
      * @param string                       $changedBy   Who switched it, such as the user identifier.
      *
-     * @throws InvalidArgumentException When the cache refuses the key.
-     * @throws Throwable                When storing fails; the transaction is rolled back.
+     * @throws \InvalidArgumentException When $changedBy does not fit feature_flags.updated_by; nothing is written.
+     * @throws InvalidArgumentException  When the cache refuses the key.
+     * @throws Throwable                 When storing fails; the transaction is rolled back.
      */
     public function switchFlag(
         FeatureFlagInterface $featureFlag,
@@ -120,12 +128,19 @@ final readonly class FeatureFlagService
         bool $on,
         string $changedBy,
     ): void {
-        $this->reserveSettingRow($featureFlag->key(), $audience->key(), $changedBy);
+        if (mb_strlen($changedBy) > self::MAX_CHANGED_BY_LENGTH) {
+            throw new \InvalidArgumentException(sprintf(
+                'Who switched a feature flag is at most %d characters; got %d.',
+                self::MAX_CHANGED_BY_LENGTH,
+                mb_strlen($changedBy),
+            ));
+        }
 
         $connection = $this->entityManager->getConnection();
         $connection->beginTransaction();
 
         try {
+            $this->reserveSettingRow($featureFlag->key(), $audience->key(), !$on, $changedBy);
             $this->applySwitchToLockedSetting($featureFlag->key(), $audience->key(), $on, $changedBy);
             $connection->commit();
         } catch (Throwable $exception) {
@@ -150,20 +165,23 @@ final readonly class FeatureFlagService
     }
 
     /**
-     * Makes sure the row of the flag and audience exists, off when it is new. An existing row is left alone.
+     * Makes sure the row of the flag and audience exists; a new row gets the given (opposite) state, which the
+     * caller switches before the commit. An existing row is left alone.
      *
      * @param string $flagKey     The key of the flag.
      * @param string $audienceKey The key of the audience.
+     * @param bool   $reservedOn  The state of a new row.
      * @param string $changedBy   Who switched it.
      */
-    private function reserveSettingRow(string $flagKey, string $audienceKey, string $changedBy): void
+    private function reserveSettingRow(string $flagKey, string $audienceKey, bool $reservedOn, string $changedBy): void
     {
         $this->entityManager->getConnection()->executeStatement(
             'INSERT IGNORE INTO feature_flags (feature_flag, audience, is_on, updated_at, updated_by)
-                VALUES (:flag, :audience, 0, :now, :by)',
+                VALUES (:flag, :audience, :on, :now, :by)',
             [
                 'flag' => $flagKey,
                 'audience' => $audienceKey,
+                'on' => (int) $reservedOn,
                 'now' => new DateTimeImmutable()->format('Y-m-d H:i:s'),
                 'by' => $changedBy,
             ],
@@ -171,8 +189,8 @@ final readonly class FeatureFlagService
     }
 
     /**
-     * Reads the reserved row with a write lock and switches it when its state differs; inside the transaction of
-     * switchFlag().
+     * Reads the row with a write lock and switches it when its state differs; inside the transaction of
+     * switchFlag(). A row reserved by this call always differs.
      *
      * @param string $flagKey     The key of the flag.
      * @param string $audienceKey The key of the audience.

@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace VanDerSangen\ProjectTemplateBundle\Tests\Functional\FeatureFlag;
 
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\DriverManager;
+use Doctrine\ORM\Events;
+use InvalidArgumentException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use VanDerSangen\ProjectTemplateBundle\Cron\Entity\Cron;
@@ -22,6 +25,7 @@ class FeatureFlagServiceTest extends KernelTestCase
     private FeatureFlagSettingRepository $featureFlagSettingRepository;
     private EntityManagerInterface $entityManager;
     private Connection $connection;
+    private ?FeatureFlagChangeRecorder $recorder = null;
 
     protected function setUp(): void
     {
@@ -39,6 +43,11 @@ class FeatureFlagServiceTest extends KernelTestCase
 
     protected function tearDown(): void
     {
+        if ($this->recorder !== null) {
+            $this->entityManager->getEventManager()->removeEventListener([Events::onFlush], $this->recorder);
+            $this->recorder = null;
+        }
+
         $this->connection->executeStatement('DELETE FROM feature_flags');
         $this->featureFlagService->clearCachedStates();
 
@@ -270,6 +279,86 @@ class FeatureFlagServiceTest extends KernelTestCase
         );
     }
 
+    public function testAFirstSwitchToOffIsAnUpdateToOff(): void
+    {
+        $recorder = $this->recordChanges();
+
+        $this->featureFlagService->switchFlag(
+            TestFeatureFlag::NEW_DASHBOARD,
+            TestFeatureFlagAudience::CUSTOMERS,
+            false,
+            'rick@example.com',
+        );
+
+        $this->assertSame(0, $recorder->insertions);
+        $this->assertSame([[true, false]], $recorder->updatesOfOn);
+        $this->assertSame([[]], $recorder->rowsSeenOutside);
+    }
+
+    public function testAFirstSwitchToOnIsOneUpdateToOn(): void
+    {
+        $recorder = $this->recordChanges();
+
+        $this->featureFlagService->switchFlag(
+            TestFeatureFlag::NEW_DASHBOARD,
+            TestFeatureFlagAudience::CUSTOMERS,
+            true,
+            'rick@example.com',
+        );
+
+        $this->assertSame(0, $recorder->insertions);
+        $this->assertSame([[false, true]], $recorder->updatesOfOn);
+        $this->assertSame([[]], $recorder->rowsSeenOutside);
+        $this->assertSame(
+            [['is_on' => 1, 'updated_by' => 'rick@example.com']],
+            $this->connection->fetchAllAssociative('SELECT is_on, updated_by FROM feature_flags'),
+        );
+    }
+
+    public function testASwitchOfAnExistingRowIsSeenOutsideOnlyAsItsOldState(): void
+    {
+        $this->insertRow('new_dashboard', 'klanten', false);
+        $recorder = $this->recordChanges();
+
+        $this->featureFlagService->switchFlag(
+            TestFeatureFlag::NEW_DASHBOARD,
+            TestFeatureFlagAudience::CUSTOMERS,
+            true,
+            'lars@example.com',
+        );
+
+        $this->assertSame([[false, true]], $recorder->updatesOfOn);
+        $this->assertSame(
+            [[['feature_flag' => 'new_dashboard', 'audience' => 'klanten', 'is_on' => 0]]],
+            $recorder->rowsSeenOutside,
+        );
+    }
+
+    public function testRefusesAChangedByLongerThanTheColumnBeforeWritingAnything(): void
+    {
+        try {
+            $this->featureFlagService->switchFlag(
+                TestFeatureFlag::NEW_DASHBOARD,
+                TestFeatureFlagAudience::CUSTOMERS,
+                true,
+                str_repeat('a', 181),
+            );
+            $this->fail('A changedBy of 181 characters was accepted.');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertStringContainsString('180', $exception->getMessage());
+        }
+
+        $this->assertSame(0, (int) $this->connection->fetchOne('SELECT COUNT(1) FROM feature_flags'));
+
+        $this->featureFlagService->switchFlag(
+            TestFeatureFlag::NEW_DASHBOARD,
+            TestFeatureFlagAudience::CUSTOMERS,
+            true,
+            str_repeat('a', 180),
+        );
+        $this->assertSame(1, (int) $this->connection->fetchOne('SELECT COUNT(1) FROM feature_flags'));
+    }
+
     public function testAFirstSwitchToOffStoresAnOffRow(): void
     {
         $this->featureFlagService->switchFlag(
@@ -334,6 +423,18 @@ class FeatureFlagServiceTest extends KernelTestCase
         } finally {
             $this->connection->executeStatement('DELETE FROM crons WHERE name = ?', [$cronName]);
         }
+    }
+
+    /**
+     * Records the flushes of this test, as a consumer's onFlush audit would see them; removed again in tearDown.
+     */
+    private function recordChanges(): FeatureFlagChangeRecorder
+    {
+        $outsideConnection = DriverManager::getConnection($this->connection->getParams());
+        $this->recorder = new FeatureFlagChangeRecorder($outsideConnection);
+        $this->entityManager->getEventManager()->addEventListener([Events::onFlush], $this->recorder);
+
+        return $this->recorder;
     }
 
     private function insertRow(string $featureFlagKey, string $audienceKey, bool $on = true): void

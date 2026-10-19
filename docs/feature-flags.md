@@ -111,7 +111,7 @@ $featureFlagService->isOnFor(FeatureFlag::UPDATE_MAILS, $audience);
 // In een cron of queue-handler: de backgroundAudience() van de flag beslist.
 $featureFlagService->isOnForBackgroundWork(FeatureFlag::UPDATE_MAILS);
 
-// Omzetten (doet ook de superbeheer-endpoint). Let op: flusht de hele unit of work.
+// Omzetten (doet ook de superbeheer-endpoint). Let op: bij een wijziging flusht dit de hele unit of work.
 $featureFlagService->switchFlag(FeatureFlag::UPDATE_MAILS, FeatureFlagAudience::MEMBERS, true, $user->getUserIdentifier());
 ```
 
@@ -174,8 +174,10 @@ gewist na elke `switchFlag()` en door een entity listener bij elke persist, upda
 - Wie de tabel met de hand (SQL) wijzigt, wist de cache zelf: `FeatureFlagService::clearCachedStates()` of
   `cache:pool:clear cache.app`.
 
-Zetten twee processen tegelijk een flag voor het eerst om, dan weigert de unieke sleutel de tweede regel. De service
-vangt dat af: hij reset de entity manager, leest de regel van de ander en past daar de omzetting op toe (geen 500).
+De eerste omzetting van een flag voor een doelgroep reserveert de regel met `INSERT IGNORE` (uit, wat hetzelfde
+betekent als geen regel) en zet hem daarna via de ORM om, met een schrijflock. Twee processen die tegelijk voor het
+eerst omzetten botsen dus niet op de unieke sleutel; voor entity listeners is elke omzetting een update. Een eerste
+omzetting naar uit is daardoor geen wijziging en wordt niet geflusht.
 
 ## Zonder config
 

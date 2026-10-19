@@ -6,12 +6,10 @@ namespace VanDerSangen\ProjectTemplateBundle\Tests\Functional\FeatureFlag;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\Persistence\ManagerRegistry;
-use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use VanDerSangen\ProjectTemplateBundle\Cron\Entity\Cron;
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Entity\FeatureFlagSetting;
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Repository\FeatureFlagSettingRepository;
-use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\FeatureFlagRegistry;
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\FeatureFlagService;
 use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlag;
 use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlagAudience;
@@ -252,19 +250,11 @@ class FeatureFlagServiceTest extends KernelTestCase
         );
     }
 
-    public function testAFirstSwitchThatLosesTheRaceToAnotherProcessIsAppliedAsAnUpdate(): void
+    public function testAFirstSwitchWhoseRowAnotherProcessStoredFirstIsAppliedAsAnUpdate(): void
     {
-        $container = static::getContainer();
-        $featureFlagService = new FeatureFlagService(
-            $this->repositoryThatMissesTheFirstLookup(),
-            $container->get(FeatureFlagRegistry::class),
-            $this->entityManager,
-            $container->get(ManagerRegistry::class),
-            $container->get(CacheInterface::class),
-        );
         $this->insertRow('new_dashboard', 'klanten', false);
 
-        $featureFlagService->switchFlag(
+        $this->featureFlagService->switchFlag(
             TestFeatureFlag::NEW_DASHBOARD,
             TestFeatureFlagAudience::CUSTOMERS,
             true,
@@ -278,37 +268,72 @@ class FeatureFlagServiceTest extends KernelTestCase
         $this->assertTrue(
             $this->featureFlagService->isOnFor(TestFeatureFlag::NEW_DASHBOARD, TestFeatureFlagAudience::CUSTOMERS),
         );
-
-        $this->entityManager->persist(new FeatureFlagSetting('nightly_report', 'klanten', true, 'lars@example.com'));
-        $this->entityManager->flush();
-        $this->assertSame(2, (int) $this->connection->fetchOne('SELECT COUNT(1) FROM feature_flags'));
     }
 
-    /**
-     * The row is stored by another process between the read and the insert of switchFlag(): the first lookup misses
-     * it, as it would in that race.
-     */
-    private function repositoryThatMissesTheFirstLookup(): FeatureFlagSettingRepository
+    public function testAFirstSwitchToOffStoresAnOffRow(): void
     {
-        $container = static::getContainer();
+        $this->featureFlagService->switchFlag(
+            TestFeatureFlag::NEW_DASHBOARD,
+            TestFeatureFlagAudience::CUSTOMERS,
+            false,
+            'rick@example.com',
+        );
 
-        return new class (
-            $container->get(ManagerRegistry::class),
-            $container->get(FeatureFlagRegistry::class),
-        ) extends FeatureFlagSettingRepository {
-            private bool $looked = false;
+        $rows = $this->connection->fetchAllAssociative(
+            'SELECT feature_flag, audience, is_on, updated_by FROM feature_flags',
+        );
+        $this->assertSame(
+            [
+                [
+                    'feature_flag' => 'new_dashboard',
+                    'audience' => 'klanten',
+                    'is_on' => 0,
+                    'updated_by' => 'rick@example.com',
+                ],
+            ],
+            $rows,
+        );
+        $this->assertFalse(
+            $this->featureFlagService->isOnFor(TestFeatureFlag::NEW_DASHBOARD, TestFeatureFlagAudience::CUSTOMERS),
+        );
+    }
 
-            public function findSettingOf(string $flagKey, string $audienceKey): ?FeatureFlagSetting
-            {
-                if (!$this->looked) {
-                    $this->looked = true;
+    public function testThePendingChangesOfTheCallerAreKeptAndWrittenWithTheSwitch(): void
+    {
+        $this->featureFlagService->switchFlag(
+            TestFeatureFlag::NEW_DASHBOARD,
+            TestFeatureFlagAudience::CUSTOMERS,
+            true,
+            'rick@example.com',
+        );
+        $cronName = 'feature-flag-pending-' . uniqid();
+        $cron = new Cron();
+        $cron->setName($cronName);
+        $cron->setCommand('list');
+        $cron->setSchedule('0 9 * * *');
+        $this->entityManager->persist($cron);
 
-                    return null;
-                }
+        $this->featureFlagService->switchFlag(
+            TestFeatureFlag::NEW_DASHBOARD,
+            TestFeatureFlagAudience::CUSTOMERS,
+            false,
+            'lars@example.com',
+        );
 
-                return parent::findSettingOf($flagKey, $audienceKey);
-            }
-        };
+        try {
+            $this->assertTrue($this->entityManager->isOpen());
+            $this->assertTrue($this->entityManager->contains($cron));
+            $this->assertNotNull($cron->getId());
+            $this->assertSame(
+                1,
+                (int) $this->connection->fetchOne('SELECT COUNT(1) FROM crons WHERE name = ?', [$cronName]),
+            );
+            $this->assertFalse(
+                $this->featureFlagService->isOnFor(TestFeatureFlag::NEW_DASHBOARD, TestFeatureFlagAudience::CUSTOMERS),
+            );
+        } finally {
+            $this->connection->executeStatement('DELETE FROM crons WHERE name = ?', [$cronName]);
+        }
     }
 
     private function insertRow(string $featureFlagKey, string $audienceKey, bool $on = true): void

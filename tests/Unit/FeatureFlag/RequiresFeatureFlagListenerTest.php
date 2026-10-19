@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\Persistence\ManagerRegistry;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
@@ -64,7 +63,6 @@ class RequiresFeatureFlagListenerTest extends TestCase
             $this->createStub(FeatureFlagSettingRepository::class),
             new FeatureFlagRegistry(TestFeatureFlag::class, TestFeatureFlagAudience::class),
             $this->createStub(EntityManagerInterface::class),
-            $this->createStub(ManagerRegistry::class),
             $cache,
         );
     }

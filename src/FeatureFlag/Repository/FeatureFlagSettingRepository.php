@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace VanDerSangen\ProjectTemplateBundle\FeatureFlag\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\Query;
 use Doctrine\Persistence\ManagerRegistry;
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Entity\FeatureFlagSetting;
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagAudienceInterface;
@@ -33,6 +35,33 @@ class FeatureFlagSettingRepository extends ServiceEntityRepository
     public function findSettingOf(string $flagKey, string $audienceKey): ?FeatureFlagSetting
     {
         return $this->findOneBy(['featureFlagKey' => $flagKey, 'audienceKey' => $audienceKey]);
+    }
+
+    /**
+     * The setting, read with a write lock (SELECT ... FOR UPDATE) and refreshed from the database. The lock only
+     * counts inside a transaction, which Doctrine requires here.
+     *
+     * @param string $flagKey     The key of the flag.
+     * @param string $audienceKey The key of the audience.
+     *
+     * @return FeatureFlagSetting|null The stored setting, or null when there is none.
+     */
+    public function findSettingOfForUpdate(string $flagKey, string $audienceKey): ?FeatureFlagSetting
+    {
+        $query = $this->createQueryBuilder('setting')
+            ->andWhere('setting.featureFlagKey = :flagKey')
+            ->andWhere('setting.audienceKey = :audienceKey');
+
+        $query->setParameter('flagKey', $flagKey);
+        $query->setParameter('audienceKey', $audienceKey);
+
+        /** @var FeatureFlagSetting|null $setting */
+        $setting = $query->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->setHint(Query::HINT_REFRESH, true)
+            ->getOneOrNullResult();
+
+        return $setting;
     }
 
     /**

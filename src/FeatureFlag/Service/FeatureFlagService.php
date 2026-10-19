@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service;
 
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\Persistence\ManagerRegistry;
+use DateTimeImmutable;
+use LogicException;
 use Psr\Cache\InvalidArgumentException;
+use Throwable;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
-use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Entity\FeatureFlagSetting;
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagAudienceInterface;
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagInterface;
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Repository\FeatureFlagSettingRepository;
@@ -37,7 +37,6 @@ final readonly class FeatureFlagService
         private FeatureFlagSettingRepository $featureFlagSettingRepository,
         private FeatureFlagRegistry $featureFlagRegistry,
         private EntityManagerInterface $entityManager,
-        private ManagerRegistry $managerRegistry,
         private CacheInterface $cache,
     ) {
     }
@@ -100,8 +99,12 @@ final readonly class FeatureFlagService
     }
 
     /**
-     * Stores the switch and clears the cached states. It flushes the entity manager, so whatever else is pending in
-     * the unit of work is written with it.
+     * Stores the switch and clears the cached states. When the state changes it flushes the entity manager, so
+     * whatever else is pending in the unit of work is written with it; the same state again flushes nothing.
+     *
+     * The row is first reserved with INSERT IGNORE (off, which means the same as no row), so a first switch by two
+     * processes at once cannot fail on the unique key. It is then read with a write lock and switched through the
+     * ORM, so entity listeners see an update.
      *
      * @param FeatureFlagInterface         $featureFlag The flag.
      * @param FeatureFlagAudienceInterface $audience    The audience whose switch changes.
@@ -109,6 +112,7 @@ final readonly class FeatureFlagService
      * @param string                       $changedBy   Who switched it, such as the user identifier.
      *
      * @throws InvalidArgumentException When the cache refuses the key.
+     * @throws Throwable                When storing fails; the transaction is rolled back.
      */
     public function switchFlag(
         FeatureFlagInterface $featureFlag,
@@ -116,20 +120,22 @@ final readonly class FeatureFlagService
         bool $on,
         string $changedBy,
     ): void {
-        $setting = $this->featureFlagSettingRepository->findSettingOf($featureFlag->key(), $audience->key());
+        $this->reserveSettingRow($featureFlag->key(), $audience->key(), $changedBy);
 
-        if ($setting === null) {
-            $setting = $this->insertFirstSetting($featureFlag, $audience, $on, $changedBy);
+        $connection = $this->entityManager->getConnection();
+        $connection->beginTransaction();
+
+        try {
+            $this->applySwitchToLockedSetting($featureFlag->key(), $audience->key(), $on, $changedBy);
+            $connection->commit();
+        } catch (Throwable $exception) {
+            if ($connection->isTransactionActive()) {
+                $connection->rollBack();
+            }
+
+            throw $exception;
         }
 
-        if ($setting === null || $setting->isOn() === $on) {
-            $this->clearCachedStates();
-
-            return;
-        }
-
-        $setting->switchTo($on, $changedBy);
-        $this->entityManager->flush();
         $this->clearCachedStates();
     }
 
@@ -144,41 +150,48 @@ final readonly class FeatureFlagService
     }
 
     /**
-     * Stores the first switch of a flag for an audience.
+     * Makes sure the row of the flag and audience exists, off when it is new. An existing row is left alone.
      *
-     * When another process stored it between our read and our insert, the unique key refuses ours and the failed
-     * flush closes the entity manager. It is then reset (the service keeps the same, lazy, instance) and the row of
-     * the other process is returned, for the caller to apply the switch to it.
-     *
-     * @param FeatureFlagInterface         $featureFlag The flag.
-     * @param FeatureFlagAudienceInterface $audience    The audience whose switch changes.
-     * @param bool                         $on          Whether the flag is on for the audience from now on.
-     * @param string                       $changedBy   Who switched it.
-     *
-     * @return FeatureFlagSetting|null Null when our row was stored; the row of the other process otherwise.
-     *
-     * @throws UniqueConstraintViolationException When the other row cannot be found after all.
+     * @param string $flagKey     The key of the flag.
+     * @param string $audienceKey The key of the audience.
+     * @param string $changedBy   Who switched it.
      */
-    private function insertFirstSetting(
-        FeatureFlagInterface $featureFlag,
-        FeatureFlagAudienceInterface $audience,
-        bool $on,
-        string $changedBy,
-    ): ?FeatureFlagSetting {
-        try {
-            $setting = new FeatureFlagSetting($featureFlag->key(), $audience->key(), $on, $changedBy);
-            $this->entityManager->persist($setting);
-            $this->entityManager->flush();
+    private function reserveSettingRow(string $flagKey, string $audienceKey, string $changedBy): void
+    {
+        $this->entityManager->getConnection()->executeStatement(
+            'INSERT IGNORE INTO feature_flags (feature_flag, audience, is_on, updated_at, updated_by)
+                VALUES (:flag, :audience, 0, :now, :by)',
+            [
+                'flag' => $flagKey,
+                'audience' => $audienceKey,
+                'now' => new DateTimeImmutable()->format('Y-m-d H:i:s'),
+                'by' => $changedBy,
+            ],
+        );
+    }
 
-            return null;
-        } catch (UniqueConstraintViolationException $exception) {
-            if (!$this->entityManager->isOpen()) {
-                $this->managerRegistry->resetManager();
-            }
+    /**
+     * Reads the reserved row with a write lock and switches it when its state differs; inside the transaction of
+     * switchFlag().
+     *
+     * @param string $flagKey     The key of the flag.
+     * @param string $audienceKey The key of the audience.
+     * @param bool   $on          Whether the flag is on for the audience from now on.
+     * @param string $changedBy   Who switched it.
+     *
+     * @throws LogicException When the reserved row is gone.
+     */
+    private function applySwitchToLockedSetting(string $flagKey, string $audienceKey, bool $on, string $changedBy): void
+    {
+        $setting = $this->featureFlagSettingRepository->findSettingOfForUpdate($flagKey, $audienceKey)
+            ?? throw new LogicException(sprintf('No feature_flags row for %s and %s.', $flagKey, $audienceKey));
 
-            return $this->featureFlagSettingRepository->findSettingOf($featureFlag->key(), $audience->key())
-                ?? throw $exception;
+        if ($setting->isOn() === $on) {
+            return;
         }
+
+        $setting->switchTo($on, $changedBy);
+        $this->entityManager->flush();
     }
 
     /**

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\Persistence\ManagerRegistry;
 use PHPUnit\Framework\TestCase;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
@@ -32,7 +31,6 @@ class FeatureFlagServiceCacheTest extends TestCase
             $repository,
             new FeatureFlagRegistry(TestFeatureFlag::class, TestFeatureFlagAudience::class),
             $this->createStub(EntityManagerInterface::class),
-            $this->createStub(ManagerRegistry::class),
             $cache,
         );
 

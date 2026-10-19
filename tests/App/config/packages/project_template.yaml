@@ -4,3 +4,6 @@ project_template:
         api_base_url: 'http://payment-api.test'
         api_token: 'test-token'
         webhook_secret: 'test-webhook-secret'
+    feature_flags:
+        flags: 'VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlag'
+        audiences: 'VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlagAudience'

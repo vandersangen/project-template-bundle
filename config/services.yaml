@@ -30,6 +30,8 @@ services:
             - '../src/Shopify/Entity/'
             - '../src/Shopify/Enum/'
             - '../src/Shopify/Exception/'
+            - '../src/FeatureFlag/Entity/'
+            - '../src/FeatureFlag/Attribute/'
 
     # Controllers
     VanDerSangen\ProjectTemplateBundle\Api\Controller\:
@@ -173,3 +175,15 @@ services:
     # ship the wkhtmltopdf binary; switch the alias to use it instead.
     VanDerSangen\ProjectTemplateBundle\Invoice\Service\PdfRendererInterface:
         '@VanDerSangen\ProjectTemplateBundle\Invoice\Service\GotenbergPdfRenderer'
+
+    # Feature flags: the project's enums of flags and audiences (both optional; without them
+    # there are no flags and every check is off).
+    VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\FeatureFlagRegistry:
+        arguments:
+            $flagEnumClass: '%project_template.feature_flags.flags%'
+            $audienceEnumClass: '%project_template.feature_flags.audiences%'
+
+    # Whose a request is for #[RequiresFeatureFlag]. Default: the first configured audience.
+    # A project with more audiences aliases this interface to its own resolver.
+    VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagAudienceResolverInterface:
+        alias: VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\SingleAudienceResolver

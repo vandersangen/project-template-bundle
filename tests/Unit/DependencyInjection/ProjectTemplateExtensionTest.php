@@ -70,6 +70,41 @@ class ProjectTemplateExtensionTest extends TestCase
         $this->assertArrayHasKey('ProjectTemplateBundle', $mappings);
         $this->assertArrayHasKey('ProjectTemplateBundleMail', $mappings);
         $this->assertArrayHasKey('ProjectTemplateBundleQueue', $mappings);
+        $this->assertArrayHasKey('ProjectTemplateBundleFeatureFlag', $mappings);
+        $this->assertSame(
+            'VanDerSangen\\ProjectTemplateBundle\\FeatureFlag\\Entity',
+            $mappings['ProjectTemplateBundleFeatureFlag']['prefix'],
+        );
+    }
+
+    public function testFeatureFlagParametersAreNullWithoutConfiguration(): void
+    {
+        $this->extension->load([], $this->container);
+
+        $this->assertNull($this->container->getParameter('project_template.feature_flags.flags'));
+        $this->assertNull($this->container->getParameter('project_template.feature_flags.audiences'));
+    }
+
+    public function testFeatureFlagParametersCarryTheConfiguredEnumClasses(): void
+    {
+        $configs = [
+            [
+                'feature_flags' => [
+                    'flags' => 'App\\FeatureFlag\\Enum\\FeatureFlag',
+                    'audiences' => 'App\\FeatureFlag\\Enum\\FeatureFlagAudience',
+                ],
+            ],
+        ];
+        $this->extension->load($configs, $this->container);
+
+        $this->assertSame(
+            'App\\FeatureFlag\\Enum\\FeatureFlag',
+            $this->container->getParameter('project_template.feature_flags.flags'),
+        );
+        $this->assertSame(
+            'App\\FeatureFlag\\Enum\\FeatureFlagAudience',
+            $this->container->getParameter('project_template.feature_flags.audiences'),
+        );
     }
 
     public function testMigrationsPathDirectoryExists(): void

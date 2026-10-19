@@ -11,7 +11,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Adds feature_flags: the switch per feature flag and audience (docs/feature-flags.md).
  *
  * It runs in every consumer's database; a project without feature flags keeps an empty table. A database that
- * already has the table is left alone.
+ * already has a table of that name must rename or drop it first.
  */
 final class Version20261019120000 extends AbstractMigration
 {
@@ -22,10 +22,6 @@ final class Version20261019120000 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        if ($schema->hasTable('feature_flags')) {
-            return;
-        }
-
         $this->addSql('CREATE TABLE feature_flags (
             id INT AUTO_INCREMENT NOT NULL,
             feature_flag VARCHAR(50) NOT NULL,

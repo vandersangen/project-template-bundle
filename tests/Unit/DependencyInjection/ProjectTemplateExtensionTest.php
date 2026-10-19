@@ -4,9 +4,16 @@ declare(strict_types=1);
 
 namespace VanDerSangen\ProjectTemplateBundle\Tests\Unit\DependencyInjection;
 
+use LogicException;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use VanDerSangen\ProjectTemplateBundle\DependencyInjection\ProjectTemplateExtension;
+use VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagAudienceInterface;
+use VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagInterface;
+use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlag;
+use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlagAudience;
+use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\DuplicateKeyFeatureFlag;
 
 class ProjectTemplateExtensionTest extends TestCase
 {
@@ -87,23 +94,54 @@ class ProjectTemplateExtensionTest extends TestCase
 
     public function testFeatureFlagParametersCarryTheConfiguredEnumClasses(): void
     {
-        $configs = [
-            [
-                'feature_flags' => [
-                    'flags' => 'App\\FeatureFlag\\Enum\\FeatureFlag',
-                    'audiences' => 'App\\FeatureFlag\\Enum\\FeatureFlagAudience',
-                ],
-            ],
-        ];
-        $this->extension->load($configs, $this->container);
+        $this->extension->load(
+            $this->featureFlagConfig(TestFeatureFlag::class, TestFeatureFlagAudience::class),
+            $this->container,
+        );
 
         $this->assertSame(
-            'App\\FeatureFlag\\Enum\\FeatureFlag',
+            TestFeatureFlag::class,
             $this->container->getParameter('project_template.feature_flags.flags'),
         );
         $this->assertSame(
-            'App\\FeatureFlag\\Enum\\FeatureFlagAudience',
+            TestFeatureFlagAudience::class,
             $this->container->getParameter('project_template.feature_flags.audiences'),
+        );
+    }
+
+    public function testTheBuildFailsOnAFlagClassThatIsNoFeatureFlagEnum(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('project_template.feature_flags.flags');
+        $this->expectExceptionMessage(stdClass::class);
+        $this->expectExceptionMessage(FeatureFlagInterface::class);
+
+        $this->extension->load(
+            $this->featureFlagConfig(stdClass::class, TestFeatureFlagAudience::class),
+            $this->container,
+        );
+    }
+
+    public function testTheBuildFailsOnAnAudienceClassThatIsNoAudienceEnum(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('project_template.feature_flags.audiences');
+        $this->expectExceptionMessage(FeatureFlagAudienceInterface::class);
+
+        $this->extension->load(
+            $this->featureFlagConfig(TestFeatureFlag::class, TestFeatureFlag::class),
+            $this->container,
+        );
+    }
+
+    public function testTheBuildFailsOnTwoFlagsWithTheSameKey(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage(DuplicateKeyFeatureFlag::class);
+
+        $this->extension->load(
+            $this->featureFlagConfig(DuplicateKeyFeatureFlag::class, TestFeatureFlagAudience::class),
+            $this->container,
         );
     }
 
@@ -134,5 +172,20 @@ class ProjectTemplateExtensionTest extends TestCase
                 sprintf('Migration file %s should use the correct namespace', basename($file))
             );
         }
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function featureFlagConfig(?string $flagEnumClass, ?string $audienceEnumClass): array
+    {
+        return [
+            [
+                'feature_flags' => [
+                    'flags' => $flagEnumClass,
+                    'audiences' => $audienceEnumClass,
+                ],
+            ],
+        ];
     }
 }

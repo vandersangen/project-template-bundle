@@ -26,13 +26,15 @@ final readonly class FeatureFlagRegistry
      * @param string|null $flagEnumClass     The enum of the project's flags, or null without flags.
      * @param string|null $audienceEnumClass The enum of the project's audiences, or null without audiences.
      *
-     * @throws LogicException When a configured class is no backed enum implementing its interface.
+     * @throws LogicException When the configuration is invalid (see validateConfiguration()).
      */
     public function __construct(?string $flagEnumClass, ?string $audienceEnumClass)
     {
+        self::validateConfiguration($flagEnumClass, $audienceEnumClass);
+
         $flags = [];
 
-        foreach ($this->casesOf($flagEnumClass, 'flags', FeatureFlagInterface::class) as $flag) {
+        foreach (self::casesOf($flagEnumClass) as $flag) {
             if ($flag instanceof FeatureFlagInterface) {
                 $flags[] = $flag;
             }
@@ -40,7 +42,7 @@ final readonly class FeatureFlagRegistry
 
         $audiences = [];
 
-        foreach ($this->casesOf($audienceEnumClass, 'audiences', FeatureFlagAudienceInterface::class) as $audience) {
+        foreach (self::casesOf($audienceEnumClass) as $audience) {
             if ($audience instanceof FeatureFlagAudienceInterface) {
                 $audiences[] = $audience;
             }
@@ -48,6 +50,22 @@ final readonly class FeatureFlagRegistry
 
         $this->flags = $flags;
         $this->audiences = $audiences;
+    }
+
+    /**
+     * Checks the configured enums; ProjectTemplateExtension calls it while the container is built, so a wrong
+     * configuration fails the build (cache:clear, a deploy) and not every request. Nothing configured, nothing checked.
+     *
+     * @param string|null $flagEnumClass     The enum of the project's flags, or null without flags.
+     * @param string|null $audienceEnumClass The enum of the project's audiences, or null without audiences.
+     *
+     * @throws LogicException When a configured class is no backed enum implementing its interface, or two of its
+     *                        cases share a key.
+     */
+    public static function validateConfiguration(?string $flagEnumClass, ?string $audienceEnumClass): void
+    {
+        self::validateEnumClass($flagEnumClass, 'flags', FeatureFlagInterface::class);
+        self::validateEnumClass($audienceEnumClass, 'audiences', FeatureFlagAudienceInterface::class);
     }
 
     /**
@@ -103,14 +121,12 @@ final readonly class FeatureFlagRegistry
      * @param string      $option    The name of the config option, for the message.
      * @param string      $interface The interface the enum must implement.
      *
-     * @return list<BackedEnum>
-     *
-     * @throws LogicException When the class is no backed enum implementing the interface.
+     * @throws LogicException When the class is no backed enum implementing the interface, or two cases share a key.
      */
-    private function casesOf(?string $enumClass, string $option, string $interface): array
+    private static function validateEnumClass(?string $enumClass, string $option, string $interface): void
     {
         if ($enumClass === null) {
-            return [];
+            return;
         }
 
         if (!enum_exists($enumClass) || !is_subclass_of($enumClass, BackedEnum::class)
@@ -122,6 +138,37 @@ final readonly class FeatureFlagRegistry
                 $enumClass,
                 $interface,
             ));
+        }
+
+        $keys = [];
+
+        foreach ($enumClass::cases() as $case) {
+            $key = $case instanceof FeatureFlagInterface || $case instanceof FeatureFlagAudienceInterface
+                ? $case->key()
+                : '';
+
+            if (isset($keys[$key])) {
+                throw new LogicException(sprintf(
+                    'project_template.feature_flags.%s names "%s", in which more than one case has the key "%s".',
+                    $option,
+                    $enumClass,
+                    $key,
+                ));
+            }
+
+            $keys[$key] = true;
+        }
+    }
+
+    /**
+     * @param string|null $enumClass A validated enum class, or null when nothing is configured.
+     *
+     * @return list<BackedEnum>
+     */
+    private static function casesOf(?string $enumClass): array
+    {
+        if ($enumClass === null || !is_subclass_of($enumClass, BackedEnum::class)) {
+            return [];
         }
 
         return $enumClass::cases();

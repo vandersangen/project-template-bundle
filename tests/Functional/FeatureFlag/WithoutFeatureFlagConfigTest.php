@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace VanDerSangen\ProjectTemplateBundle\Tests\Functional\FeatureFlag;
 
+use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
 use LogicException;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -25,6 +27,23 @@ class WithoutFeatureFlagConfigTest extends WebTestCase
         return WithoutFeatureFlagsTestKernel::class;
     }
 
+    protected function setUp(): void
+    {
+        self::bootKernel();
+        $this->connection()->executeStatement('DELETE FROM feature_flags');
+        static::getContainer()->get(FeatureFlagService::class)->clearCachedStates();
+        self::ensureKernelShutdown();
+    }
+
+    protected function tearDown(): void
+    {
+        self::bootKernel();
+        $this->connection()->executeStatement('DELETE FROM feature_flags');
+        static::getContainer()->get(FeatureFlagService::class)->clearCachedStates();
+
+        parent::tearDown();
+    }
+
     public function testTheKernelBootsWithoutFlagsOrAudiences(): void
     {
         self::bootKernel();
@@ -37,8 +56,15 @@ class WithoutFeatureFlagConfigTest extends WebTestCase
         $this->assertSame([], $registry->flags());
         $this->assertSame([], $registry->audiences());
 
+        $this->connection()->insert('feature_flags', [
+            'feature_flag' => 'new_dashboard',
+            'audience' => 'medewerkers',
+            'is_on' => 1,
+            'updated_at' => '2026-10-19 12:00:00',
+            'updated_by' => 'rick@example.com',
+        ]);
+
         $featureFlagService = $container->get(FeatureFlagService::class);
-        $featureFlagService->clearCachedStates();
         $this->assertSame([], $featureFlagService->listFlagsOnFor(TestFeatureFlagAudience::CUSTOMERS));
         $this->assertFalse(
             $featureFlagService->isOnFor(TestFeatureFlag::NEW_DASHBOARD, TestFeatureFlagAudience::STAFF),
@@ -64,5 +90,10 @@ class WithoutFeatureFlagConfigTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/super-admin/login');
 
         $this->assertResponseIsSuccessful();
+    }
+
+    private function connection(): Connection
+    {
+        return static::getContainer()->get(EntityManagerInterface::class)->getConnection();
     }
 }

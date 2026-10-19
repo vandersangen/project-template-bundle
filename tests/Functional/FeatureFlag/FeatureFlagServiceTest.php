@@ -12,6 +12,8 @@ use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Repository\FeatureFlagSetting
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\FeatureFlagService;
 use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlag;
 use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlagAudience;
+use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\DuplicateKeyAudience;
+use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\UnconfiguredFeatureFlag;
 
 class FeatureFlagServiceTest extends KernelTestCase
 {
@@ -170,6 +172,20 @@ class FeatureFlagServiceTest extends KernelTestCase
         $this->assertCount(1, $settings);
         $this->assertSame('nightly_report', $settings[0]->getFeatureFlagKey());
         $this->assertSame('klanten', $settings[0]->getAudienceKey());
+    }
+
+    public function testAFlagOrAudienceTheRegistryDoesNotKnowIsOffEvenWithARow(): void
+    {
+        $this->insertRow('elsewhere', 'klanten');
+        $this->insertRow('new_dashboard', 'same');
+
+        $this->assertFalse(
+            $this->featureFlagService->isOnFor(UnconfiguredFeatureFlag::ELSEWHERE, TestFeatureFlagAudience::CUSTOMERS),
+        );
+        $this->assertFalse($this->featureFlagService->isOnForBackgroundWork(UnconfiguredFeatureFlag::ELSEWHERE));
+        $this->assertFalse(
+            $this->featureFlagService->isOnFor(TestFeatureFlag::NEW_DASHBOARD, DuplicateKeyAudience::FIRST),
+        );
     }
 
     public function testAChangeThroughTheOrmElsewhereIsSeenOnTheNextCheck(): void

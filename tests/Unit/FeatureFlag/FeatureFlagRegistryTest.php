@@ -13,6 +13,8 @@ use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\FeatureFlagRegistry;
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\SingleAudienceResolver;
 use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlag;
 use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlagAudience;
+use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\DuplicateKeyAudience;
+use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\DuplicateKeyFeatureFlag;
 use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\EnumWithoutInterface;
 use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\UnitEnumFeatureFlag;
 
@@ -95,6 +97,24 @@ class FeatureFlagRegistryTest extends TestCase
         $this->expectExceptionMessage(FeatureFlagAudienceInterface::class);
 
         new FeatureFlagRegistry(TestFeatureFlag::class, TestFeatureFlag::class);
+    }
+
+    public function testRefusesTwoFlagsWithTheSameKey(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage(DuplicateKeyFeatureFlag::class);
+        $this->expectExceptionMessage('"same"');
+
+        new FeatureFlagRegistry(DuplicateKeyFeatureFlag::class, TestFeatureFlagAudience::class);
+    }
+
+    public function testRefusesTwoAudiencesWithTheSameKey(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage(DuplicateKeyAudience::class);
+        $this->expectExceptionMessage('"same"');
+
+        new FeatureFlagRegistry(TestFeatureFlag::class, DuplicateKeyAudience::class);
     }
 
     public function testTheDefaultResolverGivesTheFirstConfiguredAudience(): void

@@ -1340,6 +1340,10 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         api_version?: scalar|Param|null, // Shopify Admin API version used for REST and GraphQL calls // Default: "2026-01"
  *     },
  *     encryption_secret?: scalar|Param|null, // Secret used to encrypt stored third-party credentials at rest (defaults to APP_SECRET) // Default: "%env(APP_SECRET)%"
+ *     feature_flags?: array{
+ *         flags?: scalar|Param|null, // Backed enum of the project's feature flags, implementing FeatureFlagInterface // Default: null
+ *         audiences?: scalar|Param|null, // Backed enum of the project's audiences, implementing FeatureFlagAudienceInterface // Default: null
+ *     },
  *     two_factor?: array{
  *         issuer?: scalar|Param|null, // Issuer name shown in the authenticator app for TOTP two-factor entries // Default: "App"
  *     },

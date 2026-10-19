@@ -33,6 +33,8 @@ final readonly class FeatureFlagService
     }
 
     /**
+     * A flag or audience the project did not configure is off, even when a row for it is stored.
+     *
      * @param FeatureFlagInterface         $featureFlag The flag.
      * @param FeatureFlagAudienceInterface $audience    The audience whose switch counts.
      *
@@ -42,6 +44,14 @@ final readonly class FeatureFlagService
      */
     public function isOnFor(FeatureFlagInterface $featureFlag, FeatureFlagAudienceInterface $audience): bool
     {
+        if ($this->featureFlagRegistry->findFlag($featureFlag->key()) === null) {
+            return false;
+        }
+
+        if ($this->featureFlagRegistry->findAudience($audience->key()) === null) {
+            return false;
+        }
+
         return $this->findStoredStates()[$featureFlag->key()][$audience->key()] ?? false;
     }
 
@@ -80,6 +90,9 @@ final readonly class FeatureFlagService
     }
 
     /**
+     * Stores the switch and clears the cached states. It flushes the entity manager, so whatever else is pending in
+     * the unit of work is written with it.
+     *
      * @param FeatureFlagInterface         $featureFlag The flag.
      * @param FeatureFlagAudienceInterface $audience    The audience whose switch changes.
      * @param bool                         $on          Whether the flag is on for the audience from now on.

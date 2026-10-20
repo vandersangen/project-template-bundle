@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace VanDerSangen\ProjectTemplateBundle\Tests\App\Entity;
+namespace VanDerSangen\ProjectTemplateBundle\Tests\Fixtures\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
 

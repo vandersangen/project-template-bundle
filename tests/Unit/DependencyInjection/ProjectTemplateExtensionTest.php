@@ -5,17 +5,16 @@ declare(strict_types=1);
 namespace VanDerSangen\ProjectTemplateBundle\Tests\Unit\DependencyInjection;
 
 use LogicException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use stdClass;
+use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
+use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use VanDerSangen\ProjectTemplateBundle\DependencyInjection\ProjectTemplateExtension;
-use VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagAudienceInterface;
-use VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagInterface;
-use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlag;
-use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlagAudience;
-use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\DuplicateKeyFeatureFlag;
-use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\ForeignBackgroundAudienceFeatureFlag;
-use VanDerSangen\ProjectTemplateBundle\Tests\Unit\FeatureFlag\Fixtures\LongKeyAudience;
+use VanDerSangen\ProjectTemplateBundle\FeatureFlag\DependencyInjection\RequireFeatureFlagAudienceResolverPass;
+use VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagAudienceResolverInterface;
+use VanDerSangen\ProjectTemplateBundle\ProjectTemplateBundle;
+use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlagAudienceResolver;
 
 class ProjectTemplateExtensionTest extends TestCase
 {
@@ -86,95 +85,128 @@ class ProjectTemplateExtensionTest extends TestCase
         );
     }
 
-    public function testFeatureFlagParametersAreNullWithoutConfiguration(): void
+    public function testWithoutFeatureFlagConfigurationThereAreNoAudiences(): void
     {
         $this->extension->load([], $this->container);
 
-        $this->assertNull($this->container->getParameter('project_template.feature_flags.flags'));
-        $this->assertNull($this->container->getParameter('project_template.feature_flags.audiences'));
+        $this->assertSame([], $this->container->getParameter('project_template.feature_flags.audiences'));
     }
 
-    public function testFeatureFlagParametersCarryTheConfiguredEnumClasses(): void
+    public function testTheConfiguredAudiencesAreAParameterInConfigOrder(): void
     {
         $this->extension->load(
-            $this->featureFlagConfig(TestFeatureFlag::class, TestFeatureFlagAudience::class),
+            $this->audienceConfig([
+                'medewerkers' => ['label' => 'Medewerkers'],
+                'klanten' => ['label' => 'Klanten'],
+                'gasten' => ['label' => 'Niet ingelogd', 'guest' => true],
+            ]),
             $this->container,
         );
 
         $this->assertSame(
-            TestFeatureFlag::class,
-            $this->container->getParameter('project_template.feature_flags.flags'),
-        );
-        $this->assertSame(
-            TestFeatureFlagAudience::class,
+            [
+                'medewerkers' => ['label' => 'Medewerkers', 'guest' => false],
+                'klanten' => ['label' => 'Klanten', 'guest' => false],
+                'gasten' => ['label' => 'Niet ingelogd', 'guest' => true],
+            ],
             $this->container->getParameter('project_template.feature_flags.audiences'),
         );
     }
 
-    public function testTheBuildFailsOnAFlagClassThatIsNoFeatureFlagEnum(): void
+    /**
+     * @return iterable<string, array{0: array<string, array<string, mixed>>, 1: string}>
+     */
+    public static function invalidAudiences(): iterable
     {
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('project_template.feature_flags.flags');
-        $this->expectExceptionMessage(stdClass::class);
-        $this->expectExceptionMessage(FeatureFlagInterface::class);
+        yield 'a capital in the key' => [['Klanten' => ['label' => 'Klanten']], 'Klanten'];
+        yield 'a key of 21 characters' => [[str_repeat('a', 21) => ['label' => 'Lang']], str_repeat('a', 21)];
+        yield 'only digits' => [['2026' => ['label' => 'Jaar']], '2026'];
+        yield 'a digit first' => [['1abc' => ['label' => 'Cijfer']], '1abc'];
+        yield 'an underscore first' => [['_klanten' => ['label' => 'Klanten']], '_klanten'];
+        yield 'an empty label' => [['klanten' => ['label' => '']], 'label'];
+        yield 'no label' => [['klanten' => []], 'label'];
+        yield 'two guest audiences' => [
+            [
+                'gasten' => ['label' => 'Gasten', 'guest' => true],
+                'bezoekers' => ['label' => 'Bezoekers', 'guest' => true],
+            ],
+            'guest',
+        ];
+    }
 
+    /**
+     * @param array<string, array<string, mixed>> $audiences
+     */
+    #[DataProvider('invalidAudiences')]
+    public function testTheBuildFailsOnAnInvalidAudience(array $audiences, string $expectedInMessage): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage($expectedInMessage);
+
+        $this->extension->load($this->audienceConfig($audiences), $this->container);
+    }
+
+    public function testAKeyOfTwentyCharactersIsAccepted(): void
+    {
         $this->extension->load(
-            $this->featureFlagConfig(stdClass::class, TestFeatureFlagAudience::class),
+            $this->audienceConfig([str_repeat('a', 20) => ['label' => 'Twintig']]),
             $this->container,
+        );
+
+        $this->assertArrayHasKey(
+            str_repeat('a', 20),
+            $this->container->getParameter('project_template.feature_flags.audiences'),
         );
     }
 
-    public function testTheBuildFailsOnAnAudienceClassThatIsNoAudienceEnum(): void
+    public function testAudiencesWithoutAResolverFailTheBuild(): void
     {
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('project_template.feature_flags.audiences');
-        $this->expectExceptionMessage(FeatureFlagAudienceInterface::class);
+        $this->extension->load($this->audienceConfig(['klanten' => ['label' => 'Klanten']]), $this->container);
 
-        $this->extension->load(
-            $this->featureFlagConfig(TestFeatureFlag::class, TestFeatureFlag::class),
-            $this->container,
-        );
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage(sprintf(
+            '%s is set, so a service for %s is required (docs/feature-flags.md).',
+            'project_template.feature_flags.audiences',
+            'FeatureFlagAudienceResolverInterface',
+        ));
+
+        new RequireFeatureFlagAudienceResolverPass()->process($this->container);
     }
 
-    public function testTheBuildFailsOnTwoFlagsWithTheSameKey(): void
+    public function testAudiencesWithAResolverBuild(): void
     {
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage(DuplicateKeyFeatureFlag::class);
-
-        $this->extension->load(
-            $this->featureFlagConfig(DuplicateKeyFeatureFlag::class, TestFeatureFlagAudience::class),
-            $this->container,
+        $this->extension->load($this->audienceConfig(['klanten' => ['label' => 'Klanten']]), $this->container);
+        $this->container->register(TestFeatureFlagAudienceResolver::class);
+        $this->container->setAlias(
+            FeatureFlagAudienceResolverInterface::class,
+            TestFeatureFlagAudienceResolver::class,
         );
+
+        new RequireFeatureFlagAudienceResolverPass()->process($this->container);
+
+        $this->addToAssertionCount(1);
     }
 
-    public function testTheBuildFailsOnFlagsWithoutAudiences(): void
+    public function testNoAudiencesAndNoResolverBuild(): void
     {
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('project_template.feature_flags.audiences');
+        $this->extension->load([], $this->container);
 
-        $this->extension->load($this->featureFlagConfig(TestFeatureFlag::class, null), $this->container);
+        new RequireFeatureFlagAudienceResolverPass()->process($this->container);
+
+        $this->assertFalse($this->container->has(FeatureFlagAudienceResolverInterface::class));
     }
 
-    public function testTheBuildFailsOnABackgroundAudienceOfAnotherEnum(): void
+    public function testTheBundleRegistersTheResolverPass(): void
     {
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage(ForeignBackgroundAudienceFeatureFlag::class);
+        $container = new ContainerBuilder();
+        new ProjectTemplateBundle()->build($container);
 
-        $this->extension->load(
-            $this->featureFlagConfig(ForeignBackgroundAudienceFeatureFlag::class, TestFeatureFlagAudience::class),
-            $this->container,
+        $passes = array_map(
+            static fn (CompilerPassInterface $pass): string => $pass::class,
+            $container->getCompilerPassConfig()->getPasses(),
         );
-    }
 
-    public function testTheBuildFailsOnAnAudienceKeyThatDoesNotFitTheColumn(): void
-    {
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage(LongKeyAudience::class);
-
-        $this->extension->load(
-            $this->featureFlagConfig(TestFeatureFlag::class, LongKeyAudience::class),
-            $this->container,
-        );
+        $this->assertContains(RequireFeatureFlagAudienceResolverPass::class, $passes);
     }
 
     public function testMigrationsPathDirectoryExists(): void
@@ -207,17 +239,12 @@ class ProjectTemplateExtensionTest extends TestCase
     }
 
     /**
+     * @param array<string, array<string, mixed>> $audiences
+     *
      * @return list<array<string, mixed>>
      */
-    private function featureFlagConfig(?string $flagEnumClass, ?string $audienceEnumClass): array
+    private function audienceConfig(array $audiences): array
     {
-        return [
-            [
-                'feature_flags' => [
-                    'flags' => $flagEnumClass,
-                    'audiences' => $audienceEnumClass,
-                ],
-            ],
-        ];
+        return [['feature_flags' => ['audiences' => $audiences]]];
     }
 }

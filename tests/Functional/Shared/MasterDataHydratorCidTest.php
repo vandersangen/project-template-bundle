@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace VanDerSangen\ProjectTemplateBundle\Tests\Functional\Shared;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Bundle\DoctrineBundle\Mapping\MappingDriver;
+use Doctrine\ORM\Mapping\Driver\AttributeDriver;
+use Doctrine\Persistence\Mapping\Driver\MappingDriverChain;
 use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use VanDerSangen\ProjectTemplateBundle\Shared\Service\EntityReferenceRegistry;
 use VanDerSangen\ProjectTemplateBundle\Shared\Service\MasterDataHydrator;
-use VanDerSangen\ProjectTemplateBundle\Tests\App\Entity\CidTestItem;
+use VanDerSangen\ProjectTemplateBundle\Tests\Fixtures\Entity\CidTestItem;
 use VanDerSangen\ProjectTemplateBundle\User\Entity\User;
 
 class MasterDataHydratorCidTest extends KernelTestCase
@@ -29,6 +32,8 @@ class MasterDataHydratorCidTest extends KernelTestCase
         $this->referenceRegistry = $container->get(EntityReferenceRegistry::class);
         $this->entityManager = $container->get(EntityManagerInterface::class);
 
+        $this->mapCidTestItem();
+
         $this->entityManager->getConnection()->executeStatement('DROP TABLE IF EXISTS cid_test_items');
 
         $schemaTool = new SchemaTool($this->entityManager);
@@ -40,6 +45,24 @@ class MasterDataHydratorCidTest extends KernelTestCase
         $this->entityManager->getConnection()->executeStatement('DROP TABLE IF EXISTS cid_test_items');
 
         parent::tearDown();
+    }
+
+    /**
+     * CidTestItem is mapped only for this test, so doctrine:schema:validate does not expect its table.
+     */
+    private function mapCidTestItem(): void
+    {
+        $driver = $this->entityManager->getConfiguration()->getMetadataDriverImpl();
+
+        $this->assertInstanceOf(MappingDriver::class, $driver);
+
+        $chain = $driver->getDriver();
+
+        $this->assertInstanceOf(MappingDriverChain::class, $chain);
+
+        $namespace = 'VanDerSangen\\ProjectTemplateBundle\\Tests\\Fixtures\\Entity';
+
+        $chain->addDriver(new AttributeDriver([__DIR__ . '/../../Fixtures/Entity']), $namespace);
     }
 
     public function testStoresTheCidOfANewEntity(): void

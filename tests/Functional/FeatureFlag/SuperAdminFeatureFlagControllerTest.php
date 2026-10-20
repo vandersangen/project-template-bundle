@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace VanDerSangen\ProjectTemplateBundle\Tests\Functional\FeatureFlag;
 
 use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,18 +23,22 @@ class SuperAdminFeatureFlagControllerTest extends WebTestCase
     protected function setUp(): void
     {
         $this->client = static::createClient();
-        $this->removeAllFeatureFlagSettings();
+        $this->removeAllFeatureFlags();
+        $this->createFeatureFlag('b', 'Beta');
+        $this->createFeatureFlag('a', 'Alpha');
         $this->superAdmin = $this->createSuperAdmin();
     }
 
     protected function tearDown(): void
     {
-        $this->removeAllFeatureFlagSettings();
+        $this->removeAllFeatureFlags();
+        $this->connection()->executeStatement("DELETE FROM users WHERE email LIKE 'flag-%'");
+        $this->connection()->executeStatement("DELETE FROM super_admin_users WHERE username LIKE 'flag-admin-%'");
 
         parent::tearDown();
     }
 
-    public function testListsEveryFlagOffForEveryAudience(): void
+    public function testListsEveryFlagSortedByCidWithEveryAudienceOff(): void
     {
         $this->request(Request::METHOD_GET, self::PATH);
 
@@ -42,20 +47,16 @@ class SuperAdminFeatureFlagControllerTest extends WebTestCase
             [
                 'featureFlags' => [
                     [
-                        'key' => 'new_dashboard',
-                        'description' => 'Nieuw dashboard',
-                        'audiences' => [
-                            $this->offAudience('klanten', 'Klanten'),
-                            $this->offAudience('medewerkers', 'Medewerkers'),
-                        ],
+                        'cid' => 'a',
+                        'name' => 'Alpha',
+                        'description' => null,
+                        'audiences' => $this->offAudiences(),
                     ],
                     [
-                        'key' => 'nightly_report',
-                        'description' => 'Nachtelijk rapport',
-                        'audiences' => [
-                            $this->offAudience('klanten', 'Klanten'),
-                            $this->offAudience('medewerkers', 'Medewerkers'),
-                        ],
+                        'cid' => 'b',
+                        'name' => 'Beta',
+                        'description' => null,
+                        'audiences' => $this->offAudiences(),
                     ],
                 ],
             ],
@@ -65,126 +66,77 @@ class SuperAdminFeatureFlagControllerTest extends WebTestCase
 
     public function testSwitchingOnIsStoredForThatAudienceAndAnswersTheList(): void
     {
-        $this->request(
-            Request::METHOD_PUT,
-            self::PATH . '/new_dashboard',
-            ['audience' => 'medewerkers', 'on' => true],
-        );
+        $this->request(Request::METHOD_PUT, self::PATH . '/a/audiences/medewerkers', ['on' => true]);
 
         $this->assertResponseIsSuccessful();
         $featureFlags = $this->responseData($this->client)['featureFlags'];
         $audiences = array_column($featureFlags[0]['audiences'], null, 'key');
-        $this->assertSame('new_dashboard', $featureFlags[0]['key']);
+        $this->assertSame('a', $featureFlags[0]['cid']);
         $this->assertTrue($audiences['medewerkers']['on']);
         $this->assertSame($this->superAdmin, $audiences['medewerkers']['updatedBy']);
         $this->assertNotFalse(DateTimeImmutable::createFromFormat(DATE_ATOM, $audiences['medewerkers']['updatedAt']));
-        $this->assertSame($this->offAudience('klanten', 'Klanten'), $audiences['klanten']);
-        $this->assertSame(
-            [$this->offAudience('klanten', 'Klanten'), $this->offAudience('medewerkers', 'Medewerkers')],
-            $featureFlags[1]['audiences'],
-        );
-
-        $row = $this->connection()->fetchAssociative(
-            'SELECT feature_flag, audience, is_on, updated_by FROM feature_flags',
-        );
-        $this->assertSame(
-            [
-                'feature_flag' => 'new_dashboard',
-                'audience' => 'medewerkers',
-                'is_on' => 1,
-                'updated_by' => $this->superAdmin,
-            ],
-            $row,
-        );
+        $this->assertSame($this->offAudiences()[0], $audiences['klanten']);
+        $this->assertSame($this->offAudiences(), $featureFlags[1]['audiences']);
+        $this->assertTrue($this->featureFlagService()->isOnFor('a', 'medewerkers'));
     }
 
     public function testSwitchingOffAgain(): void
     {
-        $this->request(Request::METHOD_PUT, self::PATH . '/new_dashboard', ['audience' => 'klanten', 'on' => true]);
-        $this->request(Request::METHOD_PUT, self::PATH . '/new_dashboard', ['audience' => 'klanten', 'on' => false]);
+        $this->request(Request::METHOD_PUT, self::PATH . '/a/audiences/klanten', ['on' => true]);
+        $this->request(Request::METHOD_PUT, self::PATH . '/a/audiences/klanten', ['on' => false]);
 
         $this->assertResponseIsSuccessful();
         $audiences = $this->responseData($this->client)['featureFlags'][0]['audiences'];
         $this->assertFalse($audiences[0]['on']);
         $this->assertSame($this->superAdmin, $audiences[0]['updatedBy']);
+        $this->assertSame(1, (int) $this->connection()->fetchOne('SELECT COUNT(1) FROM feature_flag_audiences'));
     }
 
-    public function testARowOfARemovedFlagOrAudienceIsLeftOutOfTheList(): void
+    public function testAnUnknownFlagOrAudienceIsNotFound(): void
     {
-        $this->connection()->insert('feature_flags', [
-            'feature_flag' => 'removed_flag',
-            'audience' => 'klanten',
-            'is_on' => 1,
-            'updated_at' => '2026-10-19 12:00:00',
-            'updated_by' => 'rick',
-        ]);
-        $this->connection()->insert('feature_flags', [
-            'feature_flag' => 'new_dashboard',
-            'audience' => 'removed_audience',
-            'is_on' => 1,
-            'updated_at' => '2026-10-19 12:00:00',
-            'updated_by' => 'rick',
-        ]);
+        $body = ['on' => true];
+        $notFound = ['error' => 'Deze feature flag of doelgroep bestaat niet.'];
 
-        $this->request(Request::METHOD_GET, self::PATH);
+        $this->request(Request::METHOD_PUT, self::PATH . '/removed/audiences/klanten', $body);
+        $this->assertResponseStatusCodeSame(404);
+        $this->assertSame($notFound, $this->responseData($this->client));
 
-        $this->assertResponseIsSuccessful();
-        $featureFlags = $this->responseData($this->client)['featureFlags'];
-        $this->assertSame(['new_dashboard', 'nightly_report'], array_column($featureFlags, 'key'));
-        $this->assertSame(['klanten', 'medewerkers'], array_column($featureFlags[0]['audiences'], 'key'));
-        $this->assertFalse($featureFlags[0]['audiences'][0]['on']);
-    }
+        $this->request(Request::METHOD_PUT, self::PATH . '/a/audiences/iedereen', $body);
+        $this->assertResponseStatusCodeSame(404);
+        $this->assertSame($notFound, $this->responseData($this->client));
 
-    public function testAnUnknownFlagIsNotFound(): void
-    {
-        $this->request(Request::METHOD_PUT, self::PATH . '/removed_flag', ['audience' => 'klanten', 'on' => true]);
-
+        $this->request(Request::METHOD_PUT, self::PATH . '/removed/audiences/klanten');
         $this->assertResponseStatusCodeSame(404);
         $this->assertNothingStored();
     }
 
     /**
-     * @return iterable<string, array{array<string, mixed>, array<string, string>}>
+     * @return iterable<string, array{string}>
      */
-    public static function invalidSwitches(): iterable
+    public static function invalidBodies(): iterable
     {
-        yield 'audience missing' => [['on' => true], ['audience' => 'Kies voor wie.']];
-        yield 'audience unknown' => [['audience' => 'iedereen', 'on' => true], ['audience' => 'Kies voor wie.']];
-        yield 'audience no string' => [['audience' => 1, 'on' => true], ['audience' => 'Kies voor wie.']];
-        yield 'on missing' => [['audience' => 'klanten'], ['on' => 'Kies aan of uit.']];
-        yield 'on no bool' => [['audience' => 'klanten', 'on' => 'ja'], ['on' => 'Kies aan of uit.']];
-        yield 'on as number' => [['audience' => 'klanten', 'on' => 1], ['on' => 'Kies aan of uit.']];
+        yield 'on missing' => ['{}'];
+        yield 'on no bool' => ['{"on": "yes"}'];
+        yield 'on as number' => ['{"on": 1}'];
+        yield 'not json' => ['{"on": tru'];
+        yield 'empty' => [''];
     }
 
-    /**
-     * @param array<string, mixed>  $body
-     * @param array<string, string> $errors
-     */
-    #[\PHPUnit\Framework\Attributes\DataProvider('invalidSwitches')]
-    public function testAnInvalidSwitchIsRefusedAndNothingStored(array $body, array $errors): void
+    #[DataProvider('invalidBodies')]
+    public function testAnInvalidBodyIsRefusedAndNothingStored(string $content): void
     {
-        $this->request(Request::METHOD_PUT, self::PATH . '/new_dashboard', $body);
+        $this->client->request(
+            Request::METHOD_PUT,
+            self::PATH . '/a/audiences/klanten',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', self::userHeader() => $this->superAdmin],
+            $content,
+        );
 
         $this->assertResponseStatusCodeSame(422);
-        $this->assertSame(['errors' => $errors], $this->responseData($this->client));
+        $this->assertSame(['errors' => ['on' => 'Kies aan of uit.']], $this->responseData($this->client));
         $this->assertNothingStored();
-    }
-
-    public function testAMalformedBodyIsABadRequestAndNothingStored(): void
-    {
-        foreach (['{"audience": "klanten", "on": tru', '', '"klanten"'] as $content) {
-            $this->client->request(
-                Request::METHOD_PUT,
-                self::PATH . '/new_dashboard',
-                [],
-                [],
-                ['CONTENT_TYPE' => 'application/json', self::userHeader() => $this->superAdmin],
-                $content,
-            );
-
-            $this->assertResponseStatusCodeSame(400);
-            $this->assertNothingStored();
-        }
     }
 
     public function testAPlainUserIsRefused(): void
@@ -194,12 +146,7 @@ class SuperAdminFeatureFlagControllerTest extends WebTestCase
         $this->request(Request::METHOD_GET, self::PATH, null, $email);
         $this->assertResponseStatusCodeSame(403);
 
-        $this->request(
-            Request::METHOD_PUT,
-            self::PATH . '/new_dashboard',
-            ['audience' => 'klanten', 'on' => true],
-            $email,
-        );
+        $this->request(Request::METHOD_PUT, self::PATH . '/a/audiences/klanten', ['on' => true], $email);
         $this->assertResponseStatusCodeSame(403);
         $this->assertNothingStored();
     }
@@ -238,15 +185,34 @@ class SuperAdminFeatureFlagControllerTest extends WebTestCase
     }
 
     /**
-     * @return array{key: string, description: string, on: false, updatedAt: null, updatedBy: null}
+     * @return list<array{key: string, label: string, guest: bool, on: false, updatedAt: null, updatedBy: null}>
      */
-    private function offAudience(string $key, string $description): array
+    private function offAudiences(): array
     {
-        return ['key' => $key, 'description' => $description, 'on' => false, 'updatedAt' => null, 'updatedBy' => null];
+        return [
+            $this->offAudience('klanten', 'Klanten', false),
+            $this->offAudience('medewerkers', 'Medewerkers', false),
+            $this->offAudience('gasten', 'Niet ingelogd', true),
+        ];
+    }
+
+    /**
+     * @return array{key: string, label: string, guest: bool, on: false, updatedAt: null, updatedBy: null}
+     */
+    private function offAudience(string $key, string $label, bool $guest): array
+    {
+        return [
+            'key' => $key,
+            'label' => $label,
+            'guest' => $guest,
+            'on' => false,
+            'updatedAt' => null,
+            'updatedBy' => null,
+        ];
     }
 
     private function assertNothingStored(): void
     {
-        $this->assertSame(0, (int) $this->connection()->fetchOne('SELECT COUNT(1) FROM feature_flags'));
+        $this->assertSame(0, (int) $this->connection()->fetchOne('SELECT COUNT(1) FROM feature_flag_audiences'));
     }
 }

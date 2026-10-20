@@ -63,13 +63,24 @@ class Configuration implements ConfigurationInterface
             ->arrayNode('feature_flags')
                 ->addDefaultsIfNotSet()
                 ->children()
-                    ->scalarNode('flags')
-                        ->defaultNull()
-                        ->info('Backed enum of the project\'s feature flags, implementing FeatureFlagInterface')
-                    ->end()
-                    ->scalarNode('audiences')
-                        ->defaultNull()
-                        ->info('Backed enum of the project\'s audiences, implementing FeatureFlagAudienceInterface')
+                    ->arrayNode('audiences')
+                        ->info('Who a flag can be switched for. Key: a-z, then up to 19 of a-z, 0-9, _; never changed.')
+                        ->useAttributeAsKey('key')
+                        ->normalizeKeys(false)
+                        ->arrayPrototype()
+                            ->children()
+                                ->scalarNode('label')->isRequired()->cannotBeEmpty()->end()
+                                ->booleanNode('guest')->defaultFalse()->end()
+                            ->end()
+                        ->end()
+                        ->validate()
+                            ->ifTrue(self::hasInvalidAudienceKey(...))
+                            ->thenInvalid('An audience key is a-z, then up to 19 of a-z, 0-9 and _: %s')
+                        ->end()
+                        ->validate()
+                            ->ifTrue(self::hasMoreThanOneGuestAudience(...))
+                            ->thenInvalid('At most one audience has guest: true: %s')
+                        ->end()
                     ->end()
                 ->end()
             ->end()
@@ -85,5 +96,47 @@ class Configuration implements ConfigurationInterface
             ->end();
 
         return $treeBuilder;
+    }
+
+    /**
+     * @param array<array-key, mixed> $audiences The audiences, by key.
+     *
+     * @return bool Whether a key does not start with a-z or is not at most 20 characters of a-z, 0-9 and _ (the
+     *              length of its column). The leading letter keeps PHP from turning a key such as 2026 into an int.
+     */
+    private static function hasInvalidAudienceKey(array $audiences): bool
+    {
+        foreach (array_keys($audiences) as $key) {
+            if (preg_match('/^[a-z][a-z0-9_]{0,19}$/', (string) $key) !== 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<array-key, mixed> $audiences The audiences, by key.
+     *
+     * @return bool Whether more than one audience is the audience of a visitor without login.
+     */
+    private static function hasMoreThanOneGuestAudience(array $audiences): bool
+    {
+        $guestAudiences = array_filter(
+            $audiences,
+            self::isGuestAudience(...),
+        );
+
+        return count($guestAudiences) > 1;
+    }
+
+    /**
+     * @param mixed $audience The settings of one audience.
+     *
+     * @return bool
+     */
+    private static function isGuestAudience(mixed $audience): bool
+    {
+        return is_array($audience) && ($audience['guest'] ?? false) === true;
     }
 }

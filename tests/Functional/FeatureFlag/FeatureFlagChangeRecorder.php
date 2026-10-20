@@ -6,12 +6,12 @@ namespace VanDerSangen\ProjectTemplateBundle\Tests\Functional\FeatureFlag;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\Event\OnFlushEventArgs;
-use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Entity\FeatureFlagSetting;
+use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Entity\FeatureFlagAudience;
 
 /**
  * Test only: an onFlush listener, like a consumer's audit, that records what the unit of work does with a
- * FeatureFlagSetting, and what a reader on another connection sees of feature_flags at that moment (inside the
- * transaction of switchFlag()).
+ * FeatureFlagAudience, and what a reader on another connection sees of feature_flag_audiences at that moment
+ * (inside the transaction of switchFlag()).
  */
 final class FeatureFlagChangeRecorder
 {
@@ -32,19 +32,19 @@ final class FeatureFlagChangeRecorder
         $unitOfWork = $event->getObjectManager()->getUnitOfWork();
 
         foreach ($unitOfWork->getScheduledEntityInsertions() as $entity) {
-            if ($entity instanceof FeatureFlagSetting) {
+            if ($entity instanceof FeatureFlagAudience) {
                 $this->insertions++;
             }
         }
 
         foreach ($unitOfWork->getScheduledEntityUpdates() as $entity) {
-            if ($entity instanceof FeatureFlagSetting) {
-                $this->updatesOfOn[] = $unitOfWork->getEntityChangeSet($entity)['on'];
+            if ($entity instanceof FeatureFlagAudience) {
+                $this->updatesOfOn[] = $unitOfWork->getEntityChangeSet($entity)['isOn'];
             }
         }
 
         $this->rowsSeenOutside[] = $this->outsideConnection->fetchAllAssociative(
-            'SELECT feature_flag, audience, is_on FROM feature_flags',
+            'SELECT audience, is_on FROM feature_flag_audiences',
         );
     }
 }

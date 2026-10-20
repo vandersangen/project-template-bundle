@@ -8,6 +8,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Request;
+use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Entity\FeatureFlag;
 use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\FeatureFlagService;
 use VanDerSangen\ProjectTemplateBundle\SuperAdmin\Entity\SuperAdminUser;
 
@@ -20,6 +21,27 @@ trait FeatureFlagWebTestTrait
     {
         $this->connection()->executeStatement('DELETE FROM feature_flags');
         static::getContainer()->get(FeatureFlagService::class)->clearCachedStates();
+    }
+
+    /**
+     * Deletes every flag, which empties feature_flag_audiences through its cascade, and clears the cached states.
+     */
+    private function removeAllFeatureFlags(): void
+    {
+        $this->connection()->executeStatement('DELETE FROM feature_flags');
+        static::getContainer()->get(FeatureFlagService::class)->clearCachedStates();
+    }
+
+    private function createFeatureFlag(string $cid, string $name = 'Test'): FeatureFlag
+    {
+        $flag = new FeatureFlag();
+        $flag->setCid($cid);
+        $flag->setName($name);
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->persist($flag);
+        $entityManager->flush();
+
+        return $flag;
     }
 
     private function connection(): Connection

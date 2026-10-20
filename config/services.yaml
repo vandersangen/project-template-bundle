@@ -32,6 +32,8 @@ services:
             - '../src/Shopify/Exception/'
             - '../src/FeatureFlag/Entity/'
             - '../src/FeatureFlag/Attribute/'
+            - '../src/FeatureFlag/DependencyInjection/'
+            - '../src/FeatureFlag/Exception/'
 
     # Controllers
     VanDerSangen\ProjectTemplateBundle\Api\Controller\:
@@ -180,14 +182,14 @@ services:
     VanDerSangen\ProjectTemplateBundle\Invoice\Service\PdfRendererInterface:
         '@VanDerSangen\ProjectTemplateBundle\Invoice\Service\GotenbergPdfRenderer'
 
-    # Feature flags: the project's enums of flags and audiences (both optional; without them
-    # there are no flags and every check is off).
-    VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\FeatureFlagRegistry:
+    # Feature flags: the audiences from project_template.feature_flags.audiences (empty without
+    # config: then every check is off).
+    VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\FeatureFlagAudienceRegistry:
         arguments:
-            $flagEnumClass: '%project_template.feature_flags.flags%'
-            $audienceEnumClass: '%project_template.feature_flags.audiences%'
+            $audiences: '%project_template.feature_flags.audiences%'
 
-    # Whose a request is for #[RequiresFeatureFlag]. Default: the first configured audience.
-    # A project with more audiences aliases this interface to its own resolver.
-    VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagAudienceResolverInterface:
-        alias: VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\SingleAudienceResolver
+    # The resolver of the project (FeatureFlagAudienceResolverInterface) is required once audiences
+    # are configured (RequireFeatureFlagAudienceResolverPass); without audiences it may be missing.
+    VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\FeatureFlagService:
+        arguments:
+            $featureFlagAudienceResolver: '@?VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagAudienceResolverInterface'

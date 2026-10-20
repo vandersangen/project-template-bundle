@@ -7,8 +7,6 @@ namespace VanDerSangen\ProjectTemplateBundle\Tests\Functional\FeatureFlag;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
-use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlag;
-use VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlagAudience;
 
 class FeatureFlagControllerTest extends WebTestCase
 {
@@ -19,54 +17,43 @@ class FeatureFlagControllerTest extends WebTestCase
     protected function setUp(): void
     {
         $this->client = static::createClient();
-        $this->removeAllFeatureFlagSettings();
+        $this->removeAllFeatureFlags();
     }
 
     protected function tearDown(): void
     {
-        $this->removeAllFeatureFlagSettings();
+        $this->removeAllFeatureFlags();
+        $this->connection()->executeStatement("DELETE FROM users WHERE email LIKE 'flag-%'");
 
         parent::tearDown();
     }
 
-    public function testListsNothingWhileNoFlagIsOn(): void
+    public function testAGuestGetsTheFlagsOnForTheGuestAudience(): void
     {
-        $this->requestListAsUser();
+        $this->createFeatureFlag('a');
+        $this->createFeatureFlag('b');
 
+        $this->client->request(Request::METHOD_GET, '/api/feature-flags');
         $this->assertResponseIsSuccessful();
         $this->assertSame(['featureFlags' => []], $this->responseData($this->client));
-    }
 
-    public function testListsTheKeysOfTheFlagsOnForTheAudienceOfTheCaller(): void
-    {
-        $this->featureFlagService()->switchFlag(
-            TestFeatureFlag::NIGHTLY_REPORT,
-            TestFeatureFlagAudience::CUSTOMERS,
-            true,
-            'rick',
-        );
-        $this->featureFlagService()->switchFlag(
-            TestFeatureFlag::NEW_DASHBOARD,
-            TestFeatureFlagAudience::STAFF,
-            true,
-            'rick',
-        );
+        $this->featureFlagService()->switchFlag('a', 'gasten', true, 'rick');
+        $this->featureFlagService()->switchFlag('b', 'klanten', true, 'rick');
 
-        $this->requestListAsUser();
-
-        $this->assertResponseIsSuccessful();
-        $this->assertSame(['featureFlags' => ['nightly_report']], $this->responseData($this->client));
-    }
-
-    public function testRefusesACallerWhoIsNotSignedIn(): void
-    {
         $this->client->request(Request::METHOD_GET, '/api/feature-flags');
-
-        $this->assertResponseStatusCodeSame(401);
+        $this->assertResponseIsSuccessful();
+        $this->assertSame(['featureFlags' => ['a']], $this->responseData($this->client));
     }
 
-    private function requestListAsUser(): void
+    public function testASignedInUserGetsTheFlagsOnForTheirAudienceSortedByCid(): void
     {
+        $this->createFeatureFlag('c');
+        $this->createFeatureFlag('a');
+        $this->createFeatureFlag('b');
+        $this->featureFlagService()->switchFlag('c', 'klanten', true, 'rick');
+        $this->featureFlagService()->switchFlag('a', 'klanten', true, 'rick');
+        $this->featureFlagService()->switchFlag('b', 'medewerkers', true, 'rick');
+
         $token = $this->registerUser($this->client)['token'];
         $this->client->request(
             Request::METHOD_GET,
@@ -75,5 +62,8 @@ class FeatureFlagControllerTest extends WebTestCase
             [],
             ['HTTP_AUTHORIZATION' => 'Bearer ' . $token],
         );
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSame(['featureFlags' => ['a', 'c']], $this->responseData($this->client));
     }
 }

@@ -15,7 +15,6 @@ use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 use Symfony\Component\DependencyInjection\Reference;
-use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\FeatureFlagRegistry;
 
 class ProjectTemplateExtension extends Extension implements PrependExtensionInterface
 {
@@ -71,13 +70,8 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
             $config['queue']['max_cron_output_bytes'],
         );
 
-        // Feature flags: the project's enums of flags and audiences, null when it has none. A wrong enum
-        // fails the container build here, not every request.
-        FeatureFlagRegistry::validateConfiguration(
-            $config['feature_flags']['flags'],
-            $config['feature_flags']['audiences'],
-        );
-        $container->setParameter('project_template.feature_flags.flags', $config['feature_flags']['flags']);
+        // Feature flags: the audiences a flag can be switched for, by key in config order; empty when the project
+        // configures none. Configuration checks them, so a wrong key fails the container build, not a request.
         $container->setParameter('project_template.feature_flags.audiences', $config['feature_flags']['audiences']);
 
         // Two-factor authentication

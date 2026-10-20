@@ -39,6 +39,14 @@ security:
             custom_authenticators:
                 - VanDerSangen\ProjectTemplateBundle\Tests\App\Security\TestApiUserAuthenticator
 
+        # Test only: the routes of #[RequiresFeatureFlag], open to guests and to a user named in X-Test-User.
+        feature_flag_test:
+            pattern: ^/feature-flag-test
+            stateless: true
+            provider: test_api_user_provider
+            custom_authenticators:
+                - VanDerSangen\ProjectTemplateBundle\Tests\App\Security\TestApiUserAuthenticator
+
         api:
             pattern: ^/api
             stateless: true
@@ -67,4 +75,5 @@ security:
         - { path: ^/super-admin/login, roles: PUBLIC_ACCESS }
         - { path: ^/super-admin, roles: ROLE_SUPER_ADMIN }
         - { path: ^/api/super-admin, roles: IS_AUTHENTICATED }
+        - { path: ^/api/feature-flags$, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: ROLE_USER }

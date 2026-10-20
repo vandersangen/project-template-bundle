@@ -7,6 +7,7 @@ namespace VanDerSangen\ProjectTemplateBundle;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 use VanDerSangen\ProjectTemplateBundle\DependencyInjection\Compiler\QueueJobLogMiddlewarePass;
+use VanDerSangen\ProjectTemplateBundle\FeatureFlag\DependencyInjection\RequireFeatureFlagAudienceResolverPass;
 
 class ProjectTemplateBundle extends Bundle
 {
@@ -21,5 +22,6 @@ class ProjectTemplateBundle extends Bundle
     {
         parent::build($container);
         $container->addCompilerPass(new QueueJobLogMiddlewarePass(), PassConfig::TYPE_BEFORE_OPTIMIZATION, 50);
+        $container->addCompilerPass(new RequireFeatureFlagAudienceResolverPass());
     }
 }

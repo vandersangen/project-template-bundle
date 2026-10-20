@@ -5,5 +5,7 @@ project_template:
         api_token: 'test-token'
         webhook_secret: 'test-webhook-secret'
     feature_flags:
-        flags: 'VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlag'
-        audiences: 'VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlagAudience'
+        audiences:
+            klanten: { label: 'Klanten' }
+            medewerkers: { label: 'Medewerkers' }
+            gasten: { label: 'Niet ingelogd', guest: true }

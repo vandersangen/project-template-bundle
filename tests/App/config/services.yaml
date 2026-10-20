@@ -18,3 +18,9 @@ services:
             $apiVersion: '%project_template.shopify.api_version%'
 
     VanDerSangen\ProjectTemplateBundle\Tests\App\Security\TestApiUserAuthenticator: ~
+
+    # Whose a signed-in user of the test app is, for the feature flags.
+    VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagAudienceResolverInterface:
+        alias: VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlagAudienceResolver
+
+    VanDerSangen\ProjectTemplateBundle\Tests\App\FeatureFlag\TestFeatureFlagAudienceResolver: ~

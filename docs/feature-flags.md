@@ -21,8 +21,18 @@ flags (ze blijven daar leeg).
 
 - Geen regel in `feature_flag_audiences` = uit. Een regel van een doelgroep die het project niet meer heeft, telt niet
   mee en geeft geen fout.
-- Heeft een project al een tabel met de naam `feature_flags` of `feature_flag_audiences`, hernoem of verwijder die dan
-  **vóór** de bundle-update; anders faalt de migratie.
+- Een eigen tabel met de naam `feature_flags` of `feature_flag_audiences` moet weg zijn **vóór** de migratie van de
+  bundle draait, en dat kan een migratie van het project niet doen: Doctrine Migrations voert wachtende migraties
+  standaard alfabetisch uit op de volledige klassenaam, dus `DoctrineMigrations\ProjectTemplateBundle\Version…` komt
+  vóór `DoctrineMigrations\Version…`, wat de datum ook is. Op een database met de oude tabel faalt de bundle-migratie
+  op `CREATE TABLE`; op een verse database zou de eigen hernoeming de tabel van de bundle raken.
+  - Bestaat de eigen tabel alleen in lokale of test-databases (de eigen migratie haalde nooit een gedeelde omgeving):
+    verwijder de eigen migratie en entity in dezelfde commit als de bundle-update, haal de tabel met de hand weg in
+    elke lokale database (`php bin/console dbal:run-sql 'DROP TABLE feature_flags'`) en verwijder de rij van de eigen
+    migratie uit `doctrine_migration_versions`. Verse databases (CI) hebben niets nodig.
+  - Bestaat de eigen tabel in een gedeelde omgeving: hernoem of verwijder die daar met de hand (of in een
+    deploy-stap) vóór de bundle-update wordt uitgerold, nooit met een migratie van het project. Moeten de standen
+    behouden blijven, kopieer ze dan met de hand over.
 - Een project dat overstapt van een eigen kopie (zoals RENCO) verwijdert zijn eigen entity, repository, service,
   listener en migratie **in dezelfde commit** als de bundle-update. Twee entities op dezelfde tabel geven anders een
   dubbele mapping, en de eigen migratie botst met die van de bundle.

@@ -31,8 +31,7 @@ alle consumers bij hun eerstvolgende `composer update`.
     id = id`, zonder deadlock. De superbeheer-routes vragen een eigen stateless firewall op `^/api/super-admin` (zie
     docs).
   - **Let op, migratie:** `Version20261019120000` maakt `feature_flags` en `feature_flag_audiences` aan in de database
-    van elke consumer. Heeft een project al een tabel met een van die namen, hernoem of verwijder die dan eerst. Een
-    project met een eigen kopie (RENCO) verwijdert die in dezelfde commit als de bundle-update.
+    van elke consumer. Een eigen tabel met een van die namen moet weg zijn vóór deze migratie draait, en een migratie van het project kan dat niet doen: de migraties van de bundle draaien alfabetisch eerder dan die van het project. Alleen lokaal: verwijder eigen migratie en entity in dezelfde commit als de bundle-update, drop de tabel met de hand (`dbal:run-sql`) en verwijder de rij uit `doctrine_migration_versions`. In een gedeelde omgeving: hernoem of verwijder de tabel daar met de hand vóór het uitrollen (standen zo nodig met de hand overzetten). Zie docs.
   - **Zonder config** komen er twee lege tabellen bij en geeft elke controle `false`. `GET /api/feature-flags` geeft
     `{"featureFlags": []}`, de superbeheer-lijst de flags uit master data zonder doelgroepen en een `PUT` 404. Een
     resolver is dan niet nodig.

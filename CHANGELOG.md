@@ -5,23 +5,39 @@ alle consumers bij hun eerstvolgende `composer update`.
 
 ## [Unreleased]
 
-- **Nieuwe module FeatureFlag: flags per doelgroep.** Een project zet delen van de applicatie per doelgroep aan of uit,
-  per omgeving (`docs/feature-flags.md`). Het project levert zijn flags en doelgroepen als backed enums
-  (`FeatureFlagInterface`, `FeatureFlagAudienceInterface`) in `project_template.feature_flags.flags`/`.audiences`;
-  een foute config laat het bouwen van de container falen. `FeatureFlagService` (`isOnFor`, `isOnForBackgroundWork`, `listFlagsOnFor`,
-  `switchFlag`) cachet in `cache.app`, `#[RequiresFeatureFlag]` geeft 404 zolang een flag uit staat, en er zijn twee
-  endpoints: `GET /api/feature-flags` en `GET`/`PUT /api/super-admin/feature-flags[/{key}]` (het project beschermt
-  ze).
-  - **Let op, migratie:** `Version20261019120000` maakt de tabel `feature_flags` aan in de database van elke consumer.
-    Heeft een project al een tabel met die naam, hernoem of verwijder die dan eerst. Een project met een eigen kopie
-    (RENCO) verwijdert die in dezelfde commit als de bundle-update.
-  - **Zonder config** komt er een lege tabel `feature_flags` bij en geeft elke controle `false`. De routes zitten in
-    `config/routes.yaml` en komen via `ProjectTemplateRouteLoader` dus ook in zo'n project: `GET /api/feature-flags`
-    geeft een ingelogde gebruiker `[]`, de superbeheer-routes geven een gewone gebruiker 403 en een super admin een
-    lege lijst (GET) of 404 (PUT). Wie die routes niet wil, gebruikt de route loader niet en importeert alleen de
-    eigen mappen.
+- **Nieuwe module FeatureFlag: flags uit master data, een schakelaar per doelgroep.** Een project zet delen van de
+  applicatie per doelgroep aan of uit, per omgeving (`docs/feature-flags.md`).
+  - De flags zijn de entity `FeatureFlag` (tabel `feature_flags`: `cid`, `name`, `description`) en komen uit master data
+    (`bundle:master-data:load`). Of een flag aan staat per doelgroep staat in `feature_flag_audiences` (flag,
+    doelgroep-key, `is_on`, `updated_at`, `updated_by`); alleen `FeatureFlagService::switchFlag()` schrijft daarin.
+    Geen regel is uit; een onbekende flag of doelgroep is uit.
+  - De doelgroepen staan in `project_template.feature_flags.audiences` (key: begint met een letter, hoogstens 20 tekens
+    `a-z0-9_`; `label` verplicht; hoogstens één `guest: true`). Een foute config laat het bouwen van de container falen.
+  - Een resolver van het project (`FeatureFlagAudienceResolverInterface`) zegt bij welke doelgroepen een ingelogde
+    gebruiker hoort; een bezoeker zonder login krijgt de gastdoelgroep. De resolver is verplicht zodra er doelgroepen
+    zijn (`RequireFeatureFlagAudienceResolverPass`).
+  - `FeatureFlagService`: `isOn($cid)`, `isOnFor($cid, $audience)` (cron en queue), `listCidsOn()`, `switchFlag()`. Bij
+    meer doelgroepen staat een flag aan zodra hij voor één ervan aan staat. `#[RequiresFeatureFlag('cid')]` geeft 404
+    zolang de flag uit staat, vóór `#[IsGranted]`.
+  - Endpoints: `GET /api/feature-flags` (ook voor gasten; het project opent het pad), `GET
+    /api/super-admin/feature-flags` en `PUT /api/super-admin/feature-flags/{cid}/audiences/{audience}` met
+    `{"on": bool}`. Het project beschermt `GET /api/feature-flags` zelf; de superbeheer-routes vragen `ROLE_SUPER_ADMIN`.
+  - Alle standen zijn één item in `cache.app` (`project_template_feature_flag_states`), die pas na het vastleggen van
+    een wijziging wordt gewist. Een omzetting binnen de eigen buitenste transactie van het project wist de cache zodra
+    die transactie eindigt, uiterlijk als het request, commando of bericht eindigt.
+  - **Let op, migratie:** `Version20261019120000` maakt `feature_flags` en `feature_flag_audiences` aan in de database
+    van elke consumer. Heeft een project al een tabel met een van die namen, hernoem of verwijder die dan eerst. Een
+    project met een eigen kopie (RENCO) verwijdert die in dezelfde commit als de bundle-update.
+  - **Zonder config** komen er twee lege tabellen bij en geeft elke controle `false`. `GET /api/feature-flags` geeft
+    `{"featureFlags": []}`, de superbeheer-lijst de flags uit master data zonder doelgroepen en een `PUT` 404. Een
+    resolver is dan niet nodig.
   - **Eis bij gebruik:** één gedeelde `cache.app` (bijvoorbeeld Redis) voor alle api- en worker-processen; de standen
     verlopen als vangnet na een uur.
+- **Master data: `cid` opslaan en als uniek veld gebruiken.** `MasterDataHydrator` slaat de `cid` op wanneer de entity
+  `setCid()` heeft, en zoekt een bestaande entity altijd op `cid` als de entity een `cid`-veld heeft, ook als
+  `uniqueFields` dat niet noemt. Heeft een item ook andere `uniqueFields` (bijvoorbeeld `email`), dan wordt `cid`
+  daaraan toegevoegd en moeten ze allemaal kloppen (AND); een `cid` wijzigen maakt dus een nieuwe regel aan. Entities
+  zonder `cid`-veld veranderen niet.
 - **Cron-uitvoer live in `queue_job_logs`.** `RunCronMessageHandler` gooide de uitvoer van het commando weg (alleen
   bij een fout kwam de error-output in de exception); `stdout` bleef daardoor altijd leeg. De uitvoer (stdout en
   stderr, zoals ze kwamen) gaat nu ongeveer elke seconde naar de eigen log-regel van het bericht, ook als het

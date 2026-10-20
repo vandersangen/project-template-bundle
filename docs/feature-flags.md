@@ -1,196 +1,232 @@
 # Feature flags
 
 Met de FeatureFlag-module zet je een deel van de applicatie per **doelgroep** aan of uit, per omgeving, zonder deploy.
-Een flag die nooit is omgezet staat **uit** voor iedereen: alleen een opgeslagen regel kan een flag aanzetten.
+Een flag die nooit is omgezet staat **uit** voor iedereen: alleen een opgeslagen schakelaar kan een flag aanzetten.
 
-- Opslag: tabel `feature_flags`, één regel per flag en doelgroep (`feature_flag`, `audience`, `is_on`, `updated_at`,
-  `updated_by`). Flag en doelgroep staan er als gewone strings in (hun `key()`).
-- Geen regel = uit. Een regel van een flag of doelgroep die het project niet meer heeft, telt niet mee en geeft geen
-  fout.
+- De **flags zelf** (cid, naam, omschrijving) komen uit master data in de tabel `feature_flags`.
+- Of een flag aan staat, per doelgroep, staat in de koppeltabel `feature_flag_audiences`. Alleen
+  `FeatureFlagService::switchFlag()` schrijft daarin, vanuit superbeheer.
+- De **doelgroepen** staan in de config van het project en worden bij het bouwen van de container gecontroleerd.
+- Wie bij welke doelgroep hoort, bepaalt de **resolver** van het project.
 
-## Migratie: let op
+## Tabellen en migratie
 
-De migratie `Version20261019120000` maakt `feature_flags` aan in **de database van elke consumer**, ook in projecten
-zonder flags (de tabel blijft daar leeg).
+De migratie `Version20261019120000` maakt twee tabellen aan in **de database van elke consumer**, ook in projecten zonder
+flags (ze blijven daar leeg).
 
-- Heeft een project al een tabel met de naam `feature_flags`, hernoem of verwijder die dan **vóór** de bundle-update;
-  anders faalt de migratie.
+| Tabel | Kolommen |
+|-------|----------|
+| `feature_flags` | `id`, `cid` (unieke sleutel, 50), `name` (100), `description` (TEXT, 1000, optioneel), `created_at`, `updated_at` |
+| `feature_flag_audiences` | `id`, `feature_flag_id` (verwijst naar `feature_flags`, `ON DELETE CASCADE`), `audience` (key van de doelgroep, 20), `is_on`, `updated_at`, `updated_by` (180); uniek op flag en doelgroep |
+
+- Geen regel in `feature_flag_audiences` = uit. Een regel van een doelgroep die het project niet meer heeft, telt niet
+  mee en geeft geen fout.
+- Heeft een project al een tabel met de naam `feature_flags` of `feature_flag_audiences`, hernoem of verwijder die dan
+  **vóór** de bundle-update; anders faalt de migratie.
 - Een project dat overstapt van een eigen kopie (zoals RENCO) verwijdert zijn eigen entity, repository, service,
   listener en migratie **in dezelfde commit** als de bundle-update. Twee entities op dezelfde tabel geven anders een
   dubbele mapping, en de eigen migratie botst met die van de bundle.
 
-## Configuratie
+## Flags registreren in master data
 
-Het project levert twee backed enums en noemt ze in de config:
+Een flag is een regel in de master data van het project, bijvoorbeeld in `src/<Module>/.config/master_data/default.php`
+(of `dev.php`, `test.php`, `prod.php` per omgeving):
+
+```php
+use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Entity\FeatureFlag;
+
+return [
+    'featureFlags' => [
+        [
+            'class' => FeatureFlag::class,
+            'cid' => 'update_mails',
+            'name' => 'Updates per mail',
+            'description' => 'Leden ontvangen updates per mail.',
+        ],
+    ],
+];
+```
+
+`bundle:master-data:load` maakt de flag aan, of werkt naam en omschrijving bij.
+
+- De `cid` is de sleutel waarmee de code de flag vraagt, en blijft dus gelijk. Een flag hernoemen = de `name`
+  aanpassen; de schakelaars blijven staan. Twee keer laden geeft één regel per cid.
+- De `MasterDataHydrator` slaat de `cid` op wanneer de entity `setCid()` heeft, en zoekt een bestaande entity altijd op
+  `cid` als de entity een `cid`-veld heeft, ook als `uniqueFields` dat niet noemt. Heeft een item ook andere
+  `uniqueFields` (bijvoorbeeld `email`), dan wordt `cid` daaraan toegevoegd en moeten ze **allemaal** kloppen (AND). Een
+  `cid` wijzigen maakt dus een nieuwe regel aan.
+
+## Configuratie: doelgroepen
 
 ```yaml
 # config/packages/project_template.yaml
 project_template:
     feature_flags:
-        flags: App\FeatureFlag\Enum\FeatureFlag
-        audiences: App\FeatureFlag\Enum\FeatureFlagAudience
+        audiences:
+            leden:  { label: 'Leden' }
+            beheer: { label: 'Beheer' }
+            gasten: { label: 'Niet ingelogd', guest: true }
 ```
 
-Beide zijn optioneel (zie [Zonder config](#zonder-config)), maar `flags` zonder `audiences` mag niet. De config wordt
-gecontroleerd bij het bouwen van de container (`cache:clear`, deploy); een fout laat dat bouwen falen, met een melding
-die zegt wat er mis is en welke class het betreft. Fout is:
+- De **key** begint met een letter, bestaat uit `a-z`, `0-9` en `_` en is hoogstens 20 tekens. Hij wordt als tekst in de
+  database bewaard: wijzig een key nooit, want de schakelaars staan eronder.
+- Het `label` is verplicht en verschijnt in superbeheer.
+- Hoogstens één doelgroep heeft `guest: true`: die geldt voor een bezoeker zonder login.
+- De volgorde van de config is de volgorde in de lijst van superbeheer.
+- Een foute config laat het bouwen van de container falen; er is geen controle tijdens een request.
+- Zonder `audiences` is er geen doelgroep: elke controle geeft `false`.
 
-- een class die geen backed enum is, of de interface niet implementeert (de melding noemt dan ook de interface);
-- twee cases met dezelfde `key()`;
-- een key van een flag langer dan 50 tekens, of van een doelgroep langer dan 20 (de lengte van de kolommen);
-- `flags` zonder `audiences`;
-- een flag waarvan `backgroundAudience()` geen case is van de geconfigureerde doelgroepen-enum.
+## De resolver: wiens verzoek is het?
+
+Zodra er doelgroepen zijn ingesteld is een resolver **verplicht**; zonder bouwt de container niet
+(`RequireFeatureFlagAudienceResolverPass`). Het project implementeert
+`FeatureFlagAudienceResolverInterface` en zegt voor een ingelogde gebruiker bij welke doelgroepen hij hoort:
 
 ```php
-enum FeatureFlag: string implements FeatureFlagInterface
+namespace App\FeatureFlag;
+
+use Symfony\Component\Security\Core\User\UserInterface;
+use VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagAudienceResolverInterface;
+
+final class AccountAudienceResolver implements FeatureFlagAudienceResolverInterface
 {
-    case UPDATE_MAILS = 'update_mails'; // key: max. 50 tekens, nooit meer wijzigen
-
-    public function key(): string
+    public function resolveAudiencesOf(UserInterface $user): array
     {
-        return $this->value;
-    }
+        if (in_array('ROLE_ADMINISTRATOR', $user->getRoles(), true)) {
+            return ['beheer'];
+        }
 
-    public function describe(): string
-    {
-        return match ($this) {
-            self::UPDATE_MAILS => 'Updates per mail naar de leden',
-        };
-    }
-
-    // Wiens schakelaar telt voor werk zonder ingelogde gebruiker (cron, queue-handler).
-    public function backgroundAudience(): FeatureFlagAudienceInterface
-    {
-        return match ($this) {
-            self::UPDATE_MAILS => FeatureFlagAudience::MEMBERS,
-        };
-    }
-}
-
-enum FeatureFlagAudience: string implements FeatureFlagAudienceInterface
-{
-    case MEMBERS = 'leden'; // key: max. 20 tekens, nooit meer wijzigen
-
-    public function key(): string
-    {
-        return $this->value;
-    }
-
-    public function describe(): string
-    {
-        return 'Leden';
+        return ['leden'];
     }
 }
 ```
-
-Een case verwijderen mag: de opgeslagen regels ervan worden genegeerd.
-
-### Wiens verzoek is het? (resolver)
-
-`#[RequiresFeatureFlag]` en `GET /api/feature-flags` vragen de doelgroep van het huidige verzoek aan
-`FeatureFlagAudienceResolverInterface`. De standaard (`SingleAudienceResolver`) geeft de **eerste** geconfigureerde
-doelgroep; genoeg voor een project met één doelgroep. Heeft een project er meer, dan levert het een eigen resolver
-(bijvoorbeeld op basis van de rollen van de ingelogde gebruiker):
 
 ```yaml
 # config/services.yaml
-VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagAudienceResolverInterface:
-    alias: App\FeatureFlag\Service\RoleBasedAudienceResolver
+services:
+    VanDerSangen\ProjectTemplateBundle\FeatureFlag\FeatureFlagAudienceResolverInterface:
+        alias: App\FeatureFlag\AccountAudienceResolver
 ```
 
-**Let op:** de resolver draait voor `#[RequiresFeatureFlag]` op `kernel.controller`, dus **vóór** `#[IsGranted]` op de
-controller. Hij moet dus ook een verzoek zonder ingelogde gebruiker aankunnen (geef dan bijvoorbeeld de doelgroep met
-de minste rechten terug), en mag daar niet op stuklopen.
+- De resolver geeft keys terug. Een onbekende key wordt genegeerd. De key van de gastdoelgroep telt alleen als de
+  resolver hem zelf teruggeeft; voor een ingelogde gebruiker wordt hij niet vanzelf toegevoegd.
+- Een bezoeker zonder login wordt niet aan de resolver gevraagd: voor hem geldt de doelgroep met `guest: true`
+  (zonder zo'n doelgroep geen enkele).
+- Bij meer doelgroepen staat een flag **aan** zodra hij voor één ervan aan staat.
 
 ## Gebruik in code
 
 ```php
-// Voor de ingelogde gebruiker, met de doelgroep die je zelf bepaalt:
-$featureFlagService->isOnFor(FeatureFlag::UPDATE_MAILS, $audience);
+use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Attribute\RequiresFeatureFlag;
+use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\FeatureFlagService;
 
-// In een cron of queue-handler: de backgroundAudience() van de flag beslist.
-$featureFlagService->isOnForBackgroundWork(FeatureFlag::UPDATE_MAILS);
+// Voor de huidige gebruiker (of de gast):
+if ($this->featureFlagService->isOn('update_mails')) {
+    // ...
+}
 
-// Omzetten (doet ook de superbeheer-endpoint). Let op: bij een wijziging flusht dit de hele unit of work.
-$featureFlagService->switchFlag(FeatureFlag::UPDATE_MAILS, FeatureFlagAudience::MEMBERS, true, $user->getUserIdentifier());
+// Voor een cron of queue-handler, die geen gebruiker heeft: de doelgroep noem je zelf.
+if (!$this->featureFlagService->isOnFor('update_mails', 'leden')) {
+    return;
+}
+
+#[RequiresFeatureFlag('update_mails')]
+final class UpdateMailController extends AbstractController
+{
+}
 ```
 
-Een hele controller of één actie achter een flag: zolang de flag uit staat voor de doelgroep van de aanroeper,
-antwoordt de route **404**, alsof hij niet bestaat.
+- `isOn($cid)` kijkt naar de doelgroepen van de huidige gebruiker, of naar de gastdoelgroep.
+- `isOnFor($cid, $audience)` kijkt naar één doelgroep. Een onbekende flag of doelgroep geeft `false`.
+- `listCidsOn()` geeft de cids die voor de huidige gebruiker aan staan, gesorteerd.
+- `#[RequiresFeatureFlag('cid')]` op een controller of actie geeft **404** zolang de flag uit staat voor de
+  aanroeper. Meerdere attributen: ze moeten allemaal aan staan.
+- De listener draait op `kernel.controller`, dus **vóór** `#[IsGranted]`: een gast krijgt 404 en niet 401 op een route
+  die uit staat. Een `access_control`-regel van de firewall draait nog eerder (`kernel.request`): staat een pad daar
+  achter een rol, dan krijgt een gast eerst 401.
 
-```php
-#[RequiresFeatureFlag(FeatureFlag::UPDATE_MAILS)]
-final class UpdateMailController extends AbstractController { /* ... */ }
-```
+## Een flag omzetten
 
-Een controller zonder het attribuut merkt er niets van: geen resolver, geen cache, geen query.
+`FeatureFlagService::switchFlag($cid, $audience, $on, $updatedBy)` schrijft de schakelaar (`updatedBy` wordt
+afgekapt op 180 tekens). Een onbekende flag of doelgroep geeft `UnknownFeatureFlagException` en schrijft niets. Twee
+super admins die tegelijk een nieuwe schakelaar omzetten geven één regel en geen fout. Dezelfde stand opnieuw
+schrijft niets.
 
 ## Endpoints
 
-Beide controllers zitten in het blok `feature_flag_controllers` van de `config/routes.yaml` van de bundle. Een project
-dat de routes via `ProjectTemplateRouteLoader` laadt krijgt ze dus vanzelf; een project dat alleen losse mappen
-importeert, importeert `src/FeatureFlag/Controller/` zelf. **Het project beschermt de paden**:
+De bundle beschermt alleen de superbeheer-routes (`ROLE_SUPER_ADMIN`). `GET /api/feature-flags` heeft geen
+`#[IsGranted]`: het project beslist wie erbij mag.
 
-- `GET /api/feature-flags` (route `feature_flags_list`): achter de gewone API-firewall (JWT). De controller eist
-  `IS_AUTHENTICATED`.
+| Route | Naam | Antwoord |
+|-------|------|----------|
+| `GET /api/feature-flags` | `feature_flags_list` | `{"featureFlags": ["update_mails", ...]}`: de cids die aan staan voor de aanroeper, gesorteerd |
+| `GET /api/super-admin/feature-flags` | `super_admin_feature_flags_list` | alle flags met hun doelgroepen |
+| `PUT /api/super-admin/feature-flags/{cid}/audiences/{audience}` | `super_admin_feature_flags_switch` | dezelfde lijst als de GET |
 
-  ```json
-  {"featureFlags": ["update_mails"]}
-  ```
-
-  Alleen de keys van de flags die aan staan voor de doelgroep van de aanroeper. Zonder geconfigureerde flags: `[]`.
-- `GET /api/super-admin/feature-flags` (route `super_admin_feature_flags_list`) en
-  `PUT /api/super-admin/feature-flags/{key}` (route `super_admin_feature_flags_switch`): achter de
-  superbeheer-authenticatie van het project. De controller eist `ROLE_SUPER_ADMIN`; een gewone gebruiker krijgt 403.
-
-  ```json
-  {"featureFlags": [{
-      "key": "update_mails",
-      "description": "Updates per mail naar de leden",
+```json
+{
+  "featureFlags": [
+    {
+      "cid": "update_mails",
+      "name": "Updates per mail",
+      "description": "Leden ontvangen updates per mail.",
       "audiences": [
-          {"key": "leden", "description": "Leden", "on": true, "updatedAt": "2026-10-19T12:00:00+02:00", "updatedBy": "rick"},
-          {"key": "beheer", "description": "Beheer", "on": false, "updatedAt": null, "updatedBy": null}
+        {"key": "leden", "label": "Leden", "guest": false, "on": true,
+         "updatedAt": "2026-10-20T09:15:00+00:00", "updatedBy": "rick@example.nl"},
+        {"key": "gasten", "label": "Niet ingelogd", "guest": true, "on": false,
+         "updatedAt": null, "updatedBy": null}
       ]
-  }]}
-  ```
+    }
+  ]
+}
+```
 
-  De PUT krijgt `{"audience": "leden", "on": true}` en antwoordt dezelfde lijst. `updatedBy` is de
-  `getUserIdentifier()` van de ingelogde super admin. Onbekende flag: 404. Doelgroep ontbreekt of is onbekend: 422
-  `{"errors": {"audience": "Kies voor wie."}}`. `on` ontbreekt of is geen boolean: 422
-  `{"errors": {"on": "Kies aan of uit."}}`. Een body die geen JSON-object is (kapotte JSON, lege body, een losse
-  string): 400. In al die gevallen wordt niets opgeslagen.
+- Flags staan gesorteerd op cid, doelgroepen in de volgorde van de config. `description` is `null` zonder omschrijving.
+- Het `PUT`-lichaam is `{"on": true}`. Is `on` geen boolean, dan volgt 422 met
+  `{"errors": {"on": "Kies aan of uit."}}`. Een onbekende cid of doelgroep geeft 404 met `{"error": "..."}`.
+
+### `GET /api/feature-flags` openen voor gasten
+
+Een gast kan ook flags hebben (de gastdoelgroep). Het project zet daarom het pad open in `access_control`, vóór de
+algemene regel voor `/api`:
+
+```yaml
+# config/packages/security.yaml
+security:
+    access_control:
+        - { path: ^/api/feature-flags$, roles: PUBLIC_ACCESS }
+        - { path: ^/api, roles: ROLE_USER }
+```
+
+De firewall van dat pad moet ook een bezoeker zonder token doorlaten.
 
 ## Cache
 
-De opgeslagen standen staan in de app-cache (`cache.app`, sleutel `project_template_feature_flag_states`). Ze worden
-gewist na elke `switchFlag()` en door een entity listener bij elke persist, update of remove van een
-`FeatureFlagSetting`, ook als die buiten de service om via de ORM gebeurt. Een omzetting telt dus meteen.
+Alle standen zijn één cache-item, `project_template_feature_flag_states` in `cache.app`, per request of bericht één keer
+gelezen en daarna in het geheugen bewaard. De levensduur is een uur, als vangnet.
 
-- **Eis:** een project dat flags omzet heeft één gedeelde `cache.app` (bijvoorbeeld Redis) voor alle api- en
-  worker-processen. Met een cache per proces (filesystem per pod, APCu) wist een omzetting alleen de cache van het
-  proces dat hem deed; de andere lezen tot een uur lang de oude stand.
-- **Vangnet:** de standen verlopen na een uur. Valt het wissen van de cache samen met een transactie die nog niet is
-  gecommit, dan kan een ander proces net de oude stand opnieuw in de cache zetten; die blijft dan hooguit een uur staan.
-- Wie de tabel met de hand (SQL) wijzigt, wist de cache zelf: `FeatureFlagService::clearCachedStates()` of
-  `cache:pool:clear cache.app`.
-
-`switchFlag()` reserveert de regel binnen één transactie met `INSERT IGNORE` in de **tegenovergestelde** stand, leest
-hem met een schrijflock en zet hem via de ORM om. Een eerste omzetting is daardoor altijd een echte wijziging (een
-update) voor entity listeners en een onFlush-audit, ook naar uit. Niemand buiten de transactie ziet de gereserveerde
-stand, en twee processen die tegelijk voor het eerst omzetten botsen niet op de unieke sleutel: de tweede wacht tot de
-eerste gecommit is en past dan de opgeslagen regel aan. `changedBy` is hooguit 180 tekens; langer geeft een
-`\InvalidArgumentException` voordat er iets geschreven wordt. De service is de schrijver van `FeatureFlagSetting`: een
-ongeflushte wijziging die de aanroeper zelf aan dezelfde instelling deed, gaat verloren.
+- **Eis:** één gedeelde `cache.app` (bijvoorbeeld Redis) voor alle api- en worker-processen. Met een lokale cache per
+  proces zien ze elkaars omzetting niet.
+- De cache wordt pas gewist **nadat** de wijziging is vastgelegd, zodat geen ander proces de oude standen opnieuw
+  cachet. Dat geldt voor `switchFlag()` en voor elke andere wijziging van een flag of schakelaar via de ORM (zoals het
+  laden van master data), via `FeatureFlagCacheInvalidationListener`.
+- Zet je om binnen de eigen buitenste transactie van het project, dan wordt de gedeelde cache gewist zodra die
+  transactie eindigt, uiterlijk als het request, commando of bericht eindigt. Controles in hetzelfde proces kunnen tot
+  dan de oude stand zien.
 
 ## Zonder config
 
-Een project dat de bundle bijwerkt maar geen `feature_flags` configureert, merkt dit:
+Een project zonder `feature_flags`-config krijgt twee lege tabellen en de drie routes (ze komen via
+`ProjectTemplateRouteLoader` mee; wie ze niet wil, importeert alleen de eigen mappen):
 
-- De migratie maakt een lege tabel `feature_flags` aan.
-- Laadt het project de routes via `ProjectTemplateRouteLoader`, dan bestaan de endpoints ook daar:
-  - `GET /api/feature-flags` geeft een ingelogde gebruiker `{"featureFlags": []}`;
-  - `/api/super-admin/feature-flags` geeft een gewone gebruiker 403; een super admin krijgt op GET
-    `{"featureFlags": []}` en op een PUT 404.
-- Wil een project die routes niet, dan gebruikt het de route loader niet en importeert het alleen de mappen met
-  controllers die het wel wil (zoals RENCO doet).
-- Elke controle geeft `false`; `#[RequiresFeatureFlag]` komt er niet voor.
+- elke controle (`isOn`, `isOnFor`, `#[RequiresFeatureFlag]`) is `false`/404;
+- `GET /api/feature-flags` geeft `{"featureFlags": []}`;
+- de superbeheer-lijst geeft de flags uit master data, met lege `audiences`;
+- een `PUT` geeft 404, omdat er geen doelgroep bekend is;
+- een resolver is niet nodig.
+
+## Een flag verwijderen
+
+Haal de regel uit de master data. De flag zelf blijft in de database staan, met zijn schakelaars: master data
+verwijdert niets. Ruim hem op met een migratie in het project (`DELETE FROM feature_flags WHERE cid = '...'`; de
+schakelaars gaan mee door `ON DELETE CASCADE`). Verwijder eerst de code die hem vraagt.

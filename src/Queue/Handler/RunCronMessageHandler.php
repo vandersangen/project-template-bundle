@@ -13,15 +13,17 @@ use VanDerSangen\ProjectTemplateBundle\Queue\Message\RunCronMessage;
 use VanDerSangen\ProjectTemplateBundle\Queue\ProcessRunnerInterface;
 use VanDerSangen\ProjectTemplateBundle\Queue\QueueJobLogContext;
 use VanDerSangen\ProjectTemplateBundle\Queue\Repository\QueueJobLogRepository;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Process\Process;
+use Throwable;
 
 /**
  * Runs the cron's command. What it prints goes into the message's own queue_job_logs line while it runs, about once a
- * second, so a run can be followed live. Past project_template.queue.max_cron_output_bytes (default 1 MB) the start is
- * left out, so the end (the result) always stays.
+ * second, so a run can be followed live (less often for large output). The ProcessRunner cuts the output past
+ * project_template.queue.max_cron_output_bytes (default 1 MB), so the end (the result) always stays. A failure to
+ * write the output is logged and never stops the cron.
  */
 #[AsMessageHandler]
 class RunCronMessageHandler implements AsyncMessageHandlerInterface
@@ -33,8 +35,7 @@ class RunCronMessageHandler implements AsyncMessageHandlerInterface
         private readonly ProcessRunnerInterface $processRunner,
         private readonly QueueJobLogContext $queueJobLogContext,
         private readonly QueueJobLogRepository $queueJobLogRepository,
-        #[Autowire(param: 'project_template.queue.max_cron_output_bytes')]
-        private readonly int $maxOutputBytes = 1048576,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -63,7 +64,7 @@ class RunCronMessageHandler implements AsyncMessageHandlerInterface
         }
         $process = new Process($commandLine);
         $process->setTimeout(null);
-        if (!$this->processRunner->run($process, $this->writeOutputToTheLog())) {
+        if (!$this->processRunner->run($process, $this->writeOutputToTheLog(...))) {
             try {
                 $errorOutput = $process->getErrorOutput();
             } catch (\Exception) {
@@ -79,25 +80,29 @@ class RunCronMessageHandler implements AsyncMessageHandlerInterface
     }
 
     /**
-     * @return callable(string): void
+     * Writes the output so far into the log line of the message that is being handled.
+     *
+     * @param string $output The output so far, already cut by the ProcessRunner.
+     *
+     * @return void
      */
-    private function writeOutputToTheLog(): callable
+    private function writeOutputToTheLog(string $output): void
     {
         $queueJobLog = $this->queueJobLogContext->current();
 
-        return function (string $output) use ($queueJobLog): void {
-            if ($queueJobLog === null || $queueJobLog->getId() === null) {
-                return;
-            }
+        if ($queueJobLog === null || $queueJobLog->getId() === null) {
+            return;
+        }
 
-            if (strlen($output) > $this->maxOutputBytes) {
-                // Cut on bytes, cheap for large output; mb_strcut moves the cut to the start of a character.
-                $output = "… (start left out)\n"
-                    . mb_strcut($output, strlen($output) - $this->maxOutputBytes, null, 'UTF-8');
-            }
+        $queueJobLog->setStdout($output);
 
-            $queueJobLog->setStdout($output);
+        try {
             $this->queueJobLogRepository->saveOutputSoFar($queueJobLog->getId(), $output);
-        };
+        } catch (Throwable $exception) {
+            $this->logger->warning(
+                'Cron output could not be written to queue_job_logs.',
+                ['queueJobLogId' => $queueJobLog->getId(), 'exception' => $exception]
+            );
+        }
     }
 }

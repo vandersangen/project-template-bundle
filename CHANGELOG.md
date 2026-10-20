@@ -24,6 +24,16 @@ alle consumers bij hun eerstvolgende `composer update`.
   regel `completed`, terwijl er alleen iets op de wachtrij was gezet. Zo'n regel heet nu `queued` (zonder
   `completed_at`); de worker schrijft bij het afhandelen zijn eigen regel, zoals altijd. Wie `completed` telde, telt
   voortaan alleen echt afgehandelde berichten.
+- **Cron loopt door bij een logfout.** Lukte het wegschrijven van de uitvoer naar `queue_job_logs` niet (bijvoorbeeld
+  een verbroken databaseverbinding), dan stopte de lus in `ProcessRunner` met een exception, terwijl het commando
+  doorliep. Nu wordt de fout gelogd (`warning`) en blijft de lus controleren of het proces nog draait; na afloop
+  beslist de exitcode zoals altijd en worden `lastRunAt` en `nextRunAt` gezet.
+- **Cron-uitvoer begrensd in het geheugen.** `ProcessRunner` houdt nu hooguit twee keer
+  `project_template.queue.max_cron_output_bytes` aan uitvoer vast in plaats van alles. Het afkappen (met de
+  melding "… (start left out)") is van `RunCronMessageHandler` naar `ProcessRunner` verhuisd; `RunCronMessageHandler`
+  kreeg een `LoggerInterface`. Symfony's `Process` houdt zelf nog een kopie bij (`php://temp`), dat verandert niet.
+- **Minder vaak wegschrijven bij veel uitvoer.** Elke keer wordt alle uitvoer tot dan toe weggeschreven; dat
+  gebeurt nu, naar de grootte van wat wordt weggeschreven, elke seconde tot 64 kB, elke 5 seconden tot 256 kB en daarboven elke 15 seconden.
 
 ## [0.8.15] — 2026-09-22
 

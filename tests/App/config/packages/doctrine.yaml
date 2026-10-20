@@ -4,5 +4,12 @@ doctrine:
         profiling_collect_backtrace: '%kernel.debug%'
     orm:
         auto_mapping: true
+        mappings:
+            TestApp:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/tests/App/Entity'
+                prefix: 'VanDerSangen\ProjectTemplateBundle\Tests\App\Entity'
+                alias: TestApp
         naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
 

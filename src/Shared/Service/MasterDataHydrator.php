@@ -13,6 +13,8 @@ use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
  * Service for hydrating entities from master data configuration arrays.
  * Automatically creates entities based on 'class' property in configuration.
  * Supports entity relationships via cid/guid references.
+ * The cid is stored when the entity has a setCid() method, and it is a unique field for every entity that has a cid
+ * field: such an entity is found by its cid, whatever the uniqueFields option says.
  */
 class MasterDataHydrator
 {
@@ -127,10 +129,24 @@ class MasterDataHydrator
 
     /**
      * Find an existing entity based on unique fields, or return null if not found.
+     *
+     * @param class-string $entityClass The entity class name.
+     * @param array<string, mixed> $itemData    The item data.
+     * @param array<string, mixed> $options     Hydration options.
+     *
+     * @return object|null The existing entity or null.
      */
     private function findExistingEntity(string $entityClass, array $itemData, array $options): ?object
     {
         $uniqueFields = $options['uniqueFields'] ?? [];
+
+        if (
+            isset($itemData['cid'])
+            && !in_array('cid', $uniqueFields, true)
+            && $this->objectManager->getClassMetadata($entityClass)->hasField('cid')
+        ) {
+            $uniqueFields[] = 'cid';
+        }
 
         if (empty($uniqueFields)) {
             return null;
@@ -197,7 +213,7 @@ class MasterDataHydrator
         bool $includeRelationships = true
     ): void {
         foreach ($itemData as $property => $value) {
-            if (in_array($property, ['class', 'cid', 'guid'], true)) {
+            if (in_array($property, ['class', 'guid'], true)) {
                 continue;
             }
 

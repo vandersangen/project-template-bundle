@@ -12,8 +12,9 @@ interface ProcessRunnerInterface
      * Runs the process to the end.
      *
      * @param Process       $process  The process to run.
-     * @param callable|null $onOutput Called with all output so far (stdout and stderr, as they came), at most about
-     *                                once a second while the process runs and once when it has ended.
+     * @param callable|null $onOutput Called with the output so far (stdout and stderr, as they came), at most as often
+     *                                as the interval for its size allows (1, 5 or 15 seconds) while the process runs
+     *                                and once when it has ended. Past the maximum the start is left out, with a marker.
      *
      * @return bool Whether the process succeeded.
      */

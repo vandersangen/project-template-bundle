@@ -16,6 +16,7 @@ use VanDerSangen\ProjectTemplateBundle\Queue\Entity\QueueJobLog;
 use VanDerSangen\ProjectTemplateBundle\Queue\ProcessRunnerInterface;
 use VanDerSangen\ProjectTemplateBundle\Queue\QueueJobLogContext;
 use VanDerSangen\ProjectTemplateBundle\Queue\Repository\QueueJobLogRepository;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpKernel\KernelInterface;
 
 class RunCronMessageHandlerTest extends TestCase
@@ -26,6 +27,7 @@ class RunCronMessageHandlerTest extends TestCase
     private ProcessRunnerInterface $processRunner;
     private QueueJobLogContext $queueJobLogContext;
     private QueueJobLogRepository $queueJobLogRepository;
+    private LoggerInterface $logger;
     private RunCronMessageHandler $handler;
 
     protected function setUp(): void
@@ -36,13 +38,15 @@ class RunCronMessageHandlerTest extends TestCase
         $this->processRunner = $this->createMock(ProcessRunnerInterface::class);
         $this->queueJobLogContext = new QueueJobLogContext();
         $this->queueJobLogRepository = $this->createMock(QueueJobLogRepository::class);
+        $this->logger = $this->createMock(LoggerInterface::class);
         $this->handler = new RunCronMessageHandler(
             $this->cronRepository,
             $this->cronScheduleResolver,
             $this->kernel,
             $this->processRunner,
             $this->queueJobLogContext,
-            $this->queueJobLogRepository
+            $this->queueJobLogRepository,
+            $this->logger
         );
     }
 
@@ -184,17 +188,8 @@ class RunCronMessageHandlerTest extends TestCase
         ($this->handler)(new RunCronMessage(1));
     }
 
-    public function testOutputPastTheLimitKeepsTheEndAndWholeCharacters(): void
+    public function testALogWriteErrorDoesNotStopTheCron(): void
     {
-        $handler = new RunCronMessageHandler(
-            $this->cronRepository,
-            $this->cronScheduleResolver,
-            $this->kernel,
-            $this->processRunner,
-            $this->queueJobLogContext,
-            $this->queueJobLogRepository,
-            1024
-        );
         $cron = new Cron();
         $cron->setCommand('list');
         $cron->setSchedule('* * * * *');
@@ -206,15 +201,50 @@ class RunCronMessageHandlerTest extends TestCase
         $this->queueJobLogContext->enter($queueJobLog);
         $this->processRunner->method('run')
             ->willReturnCallback(function ($process, ?callable $onOutput) {
-                $onOutput('begin' . str_repeat('é', 1000) . 'einde');
+                $onOutput('line 1');
+                $onOutput("line 1\nline 2");
+
                 return true;
             });
-        ($handler)(new RunCronMessage(1));
-        $stdout = (string) $queueJobLog->getStdout();
-        $this->assertStringStartsWith('… (start left out)', $stdout);
-        $this->assertStringEndsWith('einde', $stdout);
-        $this->assertStringNotContainsString('begin', $stdout);
-        $this->assertTrue(mb_check_encoding($stdout, 'UTF-8'), 'The cut falls between characters.');
-        $this->assertLessThanOrEqual(1024 + 30, strlen($stdout));
+        $this->queueJobLogRepository->method('saveOutputSoFar')
+            ->willThrowException(new \RuntimeException('MySQL server has gone away'));
+        $this->logger->expects($this->atLeastOnce())
+            ->method('warning')
+            ->with(
+                'Cron output could not be written to queue_job_logs.',
+                $this->callback(fn(array $context) => $context['queueJobLogId'] === 12
+                    && $context['exception'] instanceof \RuntimeException)
+            );
+        $this->cronRepository->expects($this->once())->method('save');
+
+        ($this->handler)(new RunCronMessage(1));
+
+        $this->assertNotNull($cron->getLastRunAt());
+    }
+
+    public function testAFailingCommandStillThrowsWhenTheLogWriteFails(): void
+    {
+        $cron = new Cron();
+        $cron->setCommand('list');
+        $cron->setSchedule('* * * * *');
+        $this->cronRepository->method('find')->willReturn($cron);
+        $this->kernel->method('getProjectDir')->willReturn('/app');
+        $queueJobLog = new QueueJobLog();
+        (new \ReflectionProperty(QueueJobLog::class, 'id'))->setValue($queueJobLog, 12);
+        $this->queueJobLogContext->enter($queueJobLog);
+        $this->processRunner->method('run')
+            ->willReturnCallback(function ($process, ?callable $onOutput) {
+                $onOutput('boom');
+
+                return false;
+            });
+        $this->queueJobLogRepository->method('saveOutputSoFar')
+            ->willThrowException(new \RuntimeException('MySQL server has gone away'));
+        $this->cronRepository->expects($this->never())->method('save');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Cron command failed:');
+
+        ($this->handler)(new RunCronMessage(1));
     }
 }

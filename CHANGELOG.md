@@ -23,8 +23,13 @@ alle consumers bij hun eerstvolgende `composer update`.
     /api/super-admin/feature-flags` en `PUT /api/super-admin/feature-flags/{cid}/audiences/{audience}` met
     `{"on": bool}`. Het project beschermt `GET /api/feature-flags` zelf; de superbeheer-routes vragen `ROLE_SUPER_ADMIN`.
   - Alle standen zijn één item in `cache.app` (`project_template_feature_flag_states`), die pas na het vastleggen van
-    een wijziging wordt gewist. Een omzetting binnen de eigen buitenste transactie van het project wist de cache zodra
-    die transactie eindigt, uiterlijk als het request, commando of bericht eindigt.
+    een wijziging wordt gewist. Een omzetting binnen de eigen buitenste transactie van het project wist de gedeelde
+    cache bij de eerstvolgende flush buiten een transactie, uiterlijk als het request, commando of bericht eindigt
+    (terminate, worker-events, reset); een langlopend commando ziet tot dan de oude standen (of tot het vangnet van een
+    uur), en een gelijktijdige herlaadactie kan zelden de oude stand opnieuw opslaan. In een cron of handler telt `isOn`
+    als gast: gebruik daar `isOnFor`. Gelijktijdig omzetten reserveert de rij met `INSERT ... ON DUPLICATE KEY UPDATE
+    id = id`, zonder deadlock. De superbeheer-routes vragen een eigen stateless firewall op `^/api/super-admin` (zie
+    docs).
   - **Let op, migratie:** `Version20261019120000` maakt `feature_flags` en `feature_flag_audiences` aan in de database
     van elke consumer. Heeft een project al een tabel met een van die namen, hernoem of verwijder die dan eerst. Een
     project met een eigen kopie (RENCO) verwijdert die in dezelfde commit als de bundle-update.
@@ -33,11 +38,10 @@ alle consumers bij hun eerstvolgende `composer update`.
     resolver is dan niet nodig.
   - **Eis bij gebruik:** één gedeelde `cache.app` (bijvoorbeeld Redis) voor alle api- en worker-processen; de standen
     verlopen als vangnet na een uur.
-- **Master data: `cid` opslaan en als uniek veld gebruiken.** `MasterDataHydrator` slaat de `cid` op wanneer de entity
-  `setCid()` heeft, en zoekt een bestaande entity altijd op `cid` als de entity een `cid`-veld heeft, ook als
-  `uniqueFields` dat niet noemt. Heeft een item ook andere `uniqueFields` (bijvoorbeeld `email`), dan wordt `cid`
-  daaraan toegevoegd en moeten ze allemaal kloppen (AND); een `cid` wijzigen maakt dus een nieuwe regel aan. Entities
-  zonder `cid`-veld veranderen niet.
+- **Master data: `cid` opslaan en als terugvaloptie zoeken.** `MasterDataHydrator` slaat de `cid` op wanneer de entity
+  `setCid()` heeft. Een bestaande entity wordt eerst gezocht op de opgegeven `uniqueFields`, zoals voorheen; vindt dat
+  niets (of zijn er geen), dan wordt op `cid` alleen gezocht als het item een `cid` heeft en de entity een `cid`-veld.
+  De gevonden regel krijgt de `cid` opgeslagen. Entities zonder `cid`-veld veranderen niet.
 - **Cron-uitvoer live in `queue_job_logs`.** `RunCronMessageHandler` gooide de uitvoer van het commando weg (alleen
   bij een fout kwam de error-output in de exception); `stdout` bleef daardoor altijd leeg. De uitvoer (stdout en
   stderr, zoals ze kwamen) gaat nu ongeveer elke seconde naar de eigen log-regel van het bericht, ook als het

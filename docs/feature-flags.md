@@ -51,10 +51,11 @@ return [
 
 - De `cid` is de sleutel waarmee de code de flag vraagt, en blijft dus gelijk. Een flag hernoemen = de `name`
   aanpassen; de schakelaars blijven staan. Twee keer laden geeft één regel per cid.
-- De `MasterDataHydrator` slaat de `cid` op wanneer de entity `setCid()` heeft, en zoekt een bestaande entity altijd op
-  `cid` als de entity een `cid`-veld heeft, ook als `uniqueFields` dat niet noemt. Heeft een item ook andere
-  `uniqueFields` (bijvoorbeeld `email`), dan wordt `cid` daaraan toegevoegd en moeten ze **allemaal** kloppen (AND). Een
-  `cid` wijzigen maakt dus een nieuwe regel aan.
+- De `MasterDataHydrator` slaat de `cid` op wanneer de entity `setCid()` heeft. Een bestaande entity wordt eerst gezocht
+  op de opgegeven `uniqueFields`, zoals altijd. Vindt dat niets (of zijn er geen `uniqueFields`), heeft het item een
+  `cid` en de entity een `cid`-veld, dan wordt op `cid` alleen gezocht. De gevonden regel krijgt de `cid` opgeslagen,
+  zodat bestaande regels zonder `cid` vanzelf worden aangevuld. Een `cid` wijzigen bij entities zonder `uniqueFields`
+  maakt dus een nieuwe regel aan.
 
 ## Configuratie: doelgroepen
 
@@ -136,7 +137,8 @@ final class UpdateMailController extends AbstractController
 }
 ```
 
-- `isOn($cid)` kijkt naar de doelgroepen van de huidige gebruiker, of naar de gastdoelgroep.
+- `isOn($cid)` kijkt naar de doelgroepen van de huidige gebruiker, of naar de gastdoelgroep. In een cron of handler is
+  er geen gebruiker: gebruik daar `isOnFor`; `isOn` telt daar als gast.
 - `isOnFor($cid, $audience)` kijkt naar één doelgroep. Een onbekende flag of doelgroep geeft `false`.
 - `listCidsOn()` geeft de cids die voor de huidige gebruiker aan staan, gesorteerd.
 - `#[RequiresFeatureFlag('cid')]` op een controller of actie geeft **404** zolang de flag uit staat voor de
@@ -149,13 +151,41 @@ final class UpdateMailController extends AbstractController
 
 `FeatureFlagService::switchFlag($cid, $audience, $on, $updatedBy)` schrijft de schakelaar (`updatedBy` wordt
 afgekapt op 180 tekens). Een onbekende flag of doelgroep geeft `UnknownFeatureFlagException` en schrijft niets. Twee
-super admins die tegelijk een nieuwe schakelaar omzetten geven één regel en geen fout. Dezelfde stand opnieuw
+of meer super admins die tegelijk een nieuwe schakelaar omzetten geven één regel en geen fout of deadlock (de rij wordt
+gereserveerd met `INSERT ... ON DUPLICATE KEY UPDATE id = id`, die direct het schrijfslot neemt). Dezelfde stand opnieuw
 schrijft niets.
 
 ## Endpoints
 
-De bundle beschermt alleen de superbeheer-routes (`ROLE_SUPER_ADMIN`). `GET /api/feature-flags` heeft geen
+De superbeheer-controller vraagt `#[IsGranted('ROLE_SUPER_ADMIN')]`. `GET /api/feature-flags` heeft geen
 `#[IsGranted]`: het project beslist wie erbij mag.
+
+### `/api/super-admin` beveiligen
+
+De firewall van de eigen SuperAdmin-module van de bundle is een sessie-firewall op `^/super-admin` en dekt
+`/api/super-admin` **niet**. Het project zet daarvoor een stateless firewall, vóór de firewall op `^/api`:
+
+```yaml
+# config/packages/security.yaml
+security:
+    firewalls:
+        super_admin_api:
+            pattern: ^/api/super-admin
+            stateless: true
+            provider: app_super_admin_provider
+            custom_authenticators:
+                - App\Security\SuperAdminAuthenticator
+        api:
+            pattern: ^/api
+            stateless: true
+            # ...
+    access_control:
+        - { path: ^/api/super-admin, roles: IS_AUTHENTICATED }
+```
+
+De gebruiker van die firewall moet `ROLE_SUPER_ADMIN` hebben. Zonder eigen firewall valt het pad onder `^/api`, en dan
+komt ook een JWT-gebruiker met `ROLE_SUPER_ADMIN` door. Zie `tests/App/config/packages/security.yaml` voor een
+werkend voorbeeld.
 
 | Route | Naam | Antwoord |
 |-------|------|----------|
@@ -183,7 +213,7 @@ De bundle beschermt alleen de superbeheer-routes (`ROLE_SUPER_ADMIN`). `GET /api
 
 - Flags staan gesorteerd op cid, doelgroepen in de volgorde van de config. `description` is `null` zonder omschrijving.
 - Het `PUT`-lichaam is `{"on": true}`. Is `on` geen boolean, dan volgt 422 met
-  `{"errors": {"on": "Kies aan of uit."}}`. Een onbekende cid of doelgroep geeft 404 met `{"error": "..."}`.
+  `{"errors": {"on": "Kies aan of uit."}}`. Een leeg of kapot JSON-lichaam geeft eveneens 422. Een onbekende cid of doelgroep geeft 404 met `{"error": "..."}`.
 
 ### `GET /api/feature-flags` openen voor gasten
 
@@ -210,9 +240,11 @@ gelezen en daarna in het geheugen bewaard. De levensduur is een uur, als vangnet
 - De cache wordt pas gewist **nadat** de wijziging is vastgelegd, zodat geen ander proces de oude standen opnieuw
   cachet. Dat geldt voor `switchFlag()` en voor elke andere wijziging van een flag of schakelaar via de ORM (zoals het
   laden van master data), via `FeatureFlagCacheInvalidationListener`.
-- Zet je om binnen de eigen buitenste transactie van het project, dan wordt de gedeelde cache gewist zodra die
-  transactie eindigt, uiterlijk als het request, commando of bericht eindigt. Controles in hetzelfde proces kunnen tot
-  dan de oude stand zien.
+- Zet je om binnen de eigen buitenste transactie van het project, dan wordt de gedeelde cache gewist bij de eerstvolgende
+  flush buiten een transactie, uiterlijk als het request, het commando of het bericht eindigt (terminate,
+  worker-events of reset). Een langlopend commando dat commit en blijft doorlopen ziet tot dan de oude standen (of tot
+  een uur, het vangnet). Een gelijktijdige herlaadactie van de cache kan zelden de oude stand opnieuw opslaan, tot het
+  vangnet.
 
 ## Zonder config
 

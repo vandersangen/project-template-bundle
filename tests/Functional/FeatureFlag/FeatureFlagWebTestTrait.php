@@ -17,12 +17,6 @@ use VanDerSangen\ProjectTemplateBundle\SuperAdmin\Entity\SuperAdminUser;
  */
 trait FeatureFlagWebTestTrait
 {
-    private function removeAllFeatureFlagSettings(): void
-    {
-        $this->connection()->executeStatement('DELETE FROM feature_flags');
-        static::getContainer()->get(FeatureFlagService::class)->clearCachedStates();
-    }
-
     /**
      * Deletes every flag, which empties feature_flag_audiences through its cascade, and clears the cached states.
      */

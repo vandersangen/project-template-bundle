@@ -23,7 +23,9 @@ use VanDerSangen\ProjectTemplateBundle\FeatureFlag\Service\FeatureFlagService;
 /**
  * The feature flags of this environment, each with a switch per audience: only a super admin sees and switches them.
  *
- * The project protects /api/super-admin with its own super-admin authentication (docs/feature-flags.md).
+ * The bundle's own SuperAdmin module is a session firewall on ^/super-admin and does not cover /api/super-admin. The
+ * project needs its own stateless firewall on ^/api/super-admin, before the ^/api one, whose user has ROLE_SUPER_ADMIN;
+ * otherwise a JWT user with ROLE_SUPER_ADMIN on the ^/api firewall passes as well (docs/feature-flags.md).
  */
 #[Route('/api/super-admin/feature-flags', name: 'super_admin_feature_flags_')]
 #[IsGranted('ROLE_SUPER_ADMIN')]

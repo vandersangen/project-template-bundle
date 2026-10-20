@@ -13,8 +13,9 @@ use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
  * Service for hydrating entities from master data configuration arrays.
  * Automatically creates entities based on 'class' property in configuration.
  * Supports entity relationships via cid/guid references.
- * The cid is stored when the entity has a setCid() method, and it is a unique field for every entity that has a cid
- * field: such an entity is found by its cid, whatever the uniqueFields option says.
+ * The cid is stored when the entity has a setCid() method. An existing entity is searched by the given uniqueFields
+ * first; only when that finds nothing (or no uniqueFields are given), and the item has a cid and the entity a cid
+ * field, it is searched by cid alone. The cid is then stored on the found row, so rows without a cid are healed.
  */
 class MasterDataHydrator
 {
@@ -139,21 +140,33 @@ class MasterDataHydrator
     private function findExistingEntity(string $entityClass, array $itemData, array $options): ?object
     {
         $uniqueFields = $options['uniqueFields'] ?? [];
+        $existing = $this->findByFields($entityClass, $itemData, $uniqueFields);
 
-        if (
-            isset($itemData['cid'])
-            && !in_array('cid', $uniqueFields, true)
-            && $this->objectManager->getClassMetadata($entityClass)->hasField('cid')
-        ) {
-            $uniqueFields[] = 'cid';
+        if ($existing !== null || !isset($itemData['cid'])) {
+            return $existing;
         }
 
-        if (empty($uniqueFields)) {
+        if (!$this->objectManager->getClassMetadata($entityClass)->hasField('cid')) {
             return null;
         }
 
+        return $this->findByFields($entityClass, $itemData, ['cid']);
+    }
+
+    /**
+     * Find an entity where all given fields equal the values in the item data.
+     *
+     * @param class-string $entityClass The entity class name.
+     * @param array<string, mixed> $itemData    The item data.
+     * @param array<int, string> $fields      The fields to search by; fields without a value in the item are skipped.
+     *
+     * @return object|null The entity or null.
+     */
+    private function findByFields(string $entityClass, array $itemData, array $fields): ?object
+    {
         $criteria = [];
-        foreach ($uniqueFields as $field) {
+
+        foreach ($fields as $field) {
             if (isset($itemData[$field])) {
                 $criteria[$field] = $itemData[$field];
             }

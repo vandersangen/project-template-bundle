@@ -67,6 +67,8 @@ final class FeatureFlagService implements ResetInterface
      * For the current caller: the signed-in user's audiences, or the guest audience for a visitor without login.
      * With more than one audience the flag is on when it is on for one of them.
      *
+     * In a cron or queue handler there is no user, so this counts as a guest; use isOnFor() there.
+     *
      * @param string $cid The cid of the flag.
      *
      * @return bool
@@ -113,7 +115,7 @@ final class FeatureFlagService implements ResetInterface
             }
         }
 
-        sort($cidsOn);
+        sort($cidsOn, SORT_STRING);
 
         return $cidsOn;
     }
@@ -122,7 +124,8 @@ final class FeatureFlagService implements ResetInterface
      * Stores the switch of a flag for one audience. When the state changes it flushes the entity manager, so
      * whatever else is pending in the unit of work is written with it; the same state again writes nothing.
      *
-     * In one transaction, the row is reserved with INSERT IGNORE in the opposite state, read with a write lock and
+     * In one transaction, the row is reserved with INSERT ... ON DUPLICATE KEY UPDATE id = id in the opposite state
+     * (which takes the write lock at once, so concurrent first switches do not deadlock), read with a write lock and
      * switched through the ORM. A first switch is therefore always an update for entity listeners (and an onFlush
      * audit), also to off; nobody outside the transaction sees the reserved state, and a competing first switch waits
      * on the unique key and then updates the committed row.
@@ -204,8 +207,9 @@ final class FeatureFlagService implements ResetInterface
     private function reserveSwitchRow(int $flagId, string $audience, bool $reservedOn, string $updatedBy): void
     {
         $this->entityManager->getConnection()->executeStatement(
-            'INSERT IGNORE INTO feature_flag_audiences (feature_flag_id, audience, is_on, updated_at, updated_by)
-                VALUES (:flagId, :audience, :on, :now, :updatedBy)',
+            'INSERT INTO feature_flag_audiences (feature_flag_id, audience, is_on, updated_at, updated_by)
+                VALUES (:flagId, :audience, :on, :now, :updatedBy)
+                ON DUPLICATE KEY UPDATE id = id',
             [
                 'flagId' => $flagId,
                 'audience' => $audience,

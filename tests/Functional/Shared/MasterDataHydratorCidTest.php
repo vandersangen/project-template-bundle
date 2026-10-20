@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace VanDerSangen\ProjectTemplateBundle\Tests\Functional\Shared;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Bundle\DoctrineBundle\Mapping\MappingDriver;
+use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\Driver\AttributeDriver;
-use Doctrine\Persistence\Mapping\Driver\MappingDriverChain;
 use Doctrine\ORM\Tools\SchemaTool;
+use Doctrine\Persistence\Mapping\Driver\MappingDriverChain;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use VanDerSangen\ProjectTemplateBundle\Shared\Service\EntityReferenceRegistry;
 use VanDerSangen\ProjectTemplateBundle\Shared\Service\MasterDataHydrator;
@@ -94,6 +94,22 @@ class MasterDataHydratorCidTest extends KernelTestCase
         $this->hydrator->hydrateAndPersist('cid_test_items', [$this->item('b', 'A')], [], true);
 
         $this->assertCount(2, $this->fetchRows());
+    }
+
+    public function testFindsAnEntityByItsUniqueFieldWhenTheStoredCidDiffers(): void
+    {
+        $connection = $this->entityManager->getConnection();
+        $connection->executeStatement("INSERT INTO cid_test_items (cid, name) VALUES ('', 'A')");
+        $connection->executeStatement("INSERT INTO cid_test_items (cid, name) VALUES ('old', 'B')");
+
+        $this->hydrator->hydrateAndPersist(
+            'cid_test_items',
+            [$this->item('a', 'A'), $this->item('b', 'B')],
+            ['uniqueFields' => ['name']],
+            true
+        );
+
+        $this->assertSame([['cid' => 'a', 'name' => 'A'], ['cid' => 'b', 'name' => 'B']], $this->fetchRows());
     }
 
     public function testAnEntityWithoutACidFieldIsNotSearchedByCid(): void

@@ -64,7 +64,7 @@ class RunCronMessageHandler implements AsyncMessageHandlerInterface
         }
         $process = new Process($commandLine);
         $process->setTimeout(null);
-        if (!$this->processRunner->run($process, $this->writeOutputToTheLog())) {
+        if (!$this->processRunner->run($process, $this->writeOutputToTheLog(...))) {
             try {
                 $errorOutput = $process->getErrorOutput();
             } catch (\Exception) {
@@ -80,27 +80,29 @@ class RunCronMessageHandler implements AsyncMessageHandlerInterface
     }
 
     /**
-     * @return callable(string): void
+     * Writes the output so far into the log line of the message that is being handled.
+     *
+     * @param string $output The output so far, already cut by the ProcessRunner.
+     *
+     * @return void
      */
-    private function writeOutputToTheLog(): callable
+    private function writeOutputToTheLog(string $output): void
     {
         $queueJobLog = $this->queueJobLogContext->current();
 
-        return function (string $output) use ($queueJobLog): void {
-            if ($queueJobLog === null || $queueJobLog->getId() === null) {
-                return;
-            }
+        if ($queueJobLog === null || $queueJobLog->getId() === null) {
+            return;
+        }
 
-            $queueJobLog->setStdout($output);
+        $queueJobLog->setStdout($output);
 
-            try {
-                $this->queueJobLogRepository->saveOutputSoFar($queueJobLog->getId(), $output);
-            } catch (Throwable $exception) {
-                $this->logger->warning(
-                    'Cron output could not be written to queue_job_logs.',
-                    ['queueJobLogId' => $queueJobLog->getId(), 'exception' => $exception]
-                );
-            }
-        };
+        try {
+            $this->queueJobLogRepository->saveOutputSoFar($queueJobLog->getId(), $output);
+        } catch (Throwable $exception) {
+            $this->logger->warning(
+                'Cron output could not be written to queue_job_logs.',
+                ['queueJobLogId' => $queueJobLog->getId(), 'exception' => $exception]
+            );
+        }
     }
 }

@@ -240,6 +240,8 @@ class RunCronMessageHandlerTest extends TestCase
             });
         $this->queueJobLogRepository->method('saveOutputSoFar')
             ->willThrowException(new \RuntimeException('MySQL server has gone away'));
+        $this->logger->expects($this->atLeastOnce())->method('warning')
+            ->with('Cron output could not be written to queue_job_logs.');
         $this->cronRepository->expects($this->never())->method('save');
 
         $this->expectException(\RuntimeException::class);

@@ -9,8 +9,6 @@ use Symfony\Component\Process\Process;
 
 class ProcessRunner implements ProcessRunnerInterface
 {
-    private const string START_LEFT_OUT_MARKER = "… (start left out)\n";
-
     private const int POLL_MICROSECONDS = 100_000;
 
     private const int SMALL_OUTPUT_BYTES = 65_536;
@@ -45,38 +43,37 @@ class ProcessRunner implements ProcessRunnerInterface
             return $process->isSuccessful();
         }
 
-        $output = '';
-        $startLeftOut = false;
-        $changed = false;
-        $process->start(function (string $type, string $chunk) use (&$output, &$startLeftOut, &$changed): void {
-            $output .= $chunk;
-            $changed = true;
-
-            if (strlen($output) > 2 * $this->maxOutputBytes) {
-                $output = $this->lastBytesOf($output);
-                $startLeftOut = true;
-            }
-        });
+        $buffer = new CronOutputBuffer($this->maxOutputBytes);
+        $process->start($buffer->append(...));
 
         $lastReport = microtime(true);
+
         while ($process->isRunning()) {
             $process->checkTimeout();
             usleep(self::POLL_MICROSECONDS);
 
-            if ($changed && microtime(true) - $lastReport >= $this->reportIntervalSecondsFor(strlen($output))) {
-                $onOutput($this->reportableOutput($output, $startLeftOut));
-                $changed = false;
+            if ($buffer->hasChanged()
+                && microtime(true) - $lastReport >= $this->reportIntervalSecondsFor($buffer->reportableBytes())
+            ) {
+                $onOutput($buffer->take());
                 $lastReport = microtime(true);
             }
         }
 
         // Reads what is still in the pipes once the process has ended.
         $process->wait();
-        $onOutput($this->reportableOutput($output, $startLeftOut));
+        $onOutput($buffer->take());
 
         return $process->isSuccessful();
     }
 
+    /**
+     * How long to wait between two reports, given the number of bytes that is written.
+     *
+     * @param int $outputBytes The size of the output that a report writes.
+     *
+     * @return float
+     */
     private function reportIntervalSecondsFor(int $outputBytes): float
     {
         if ($outputBytes <= self::SMALL_OUTPUT_BYTES) {
@@ -88,20 +85,5 @@ class ProcessRunner implements ProcessRunnerInterface
         }
 
         return 15.0;
-    }
-
-    private function reportableOutput(string $output, bool $startLeftOut): string
-    {
-        if (strlen($output) > $this->maxOutputBytes) {
-            return self::START_LEFT_OUT_MARKER . $this->lastBytesOf($output);
-        }
-
-        return $startLeftOut ? self::START_LEFT_OUT_MARKER . $output : $output;
-    }
-
-    private function lastBytesOf(string $output): string
-    {
-        // Cut on bytes, cheap for large output; mb_strcut moves the cut to the start of a character.
-        return mb_strcut($output, strlen($output) - $this->maxOutputBytes, null, 'UTF-8');
     }
 }

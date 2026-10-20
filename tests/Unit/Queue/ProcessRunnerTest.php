@@ -73,4 +73,18 @@ class ProcessRunnerTest extends TestCase
         $this->assertSame(5.0, $method->invoke($runner, 262_144));
         $this->assertSame(15.0, $method->invoke($runner, 262_145));
     }
+
+    public function testSmallMaximumDoesNotSlowTheReports(): void
+    {
+        $reports = [];
+        $script = 'echo "first\n"; sleep(2); echo "last\n";';
+
+        $process = new Process([PHP_BINARY, '-r', $script]);
+
+        (new ProcessRunner(10))->run($process, function (string $output) use (&$reports): void {
+            $reports[] = $output;
+        });
+
+        $this->assertGreaterThanOrEqual(2, count($reports));
+    }
 }

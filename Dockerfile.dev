@@ -2,7 +2,8 @@ FROM php:8.5-fpm
 
 # Security hotfix (CVE-2026-109618/109619): upload-progress tracking is not used anywhere,
 # so switch it off to close the reported session.upload_progress attack path.
-RUN echo "session.upload_progress.enabled = Off" > /usr/local/etc/php/conf.d/zz-security.ini
+# PHP 8.5: the advisory also confirms fatal-error backtraces as an attack path, so those go off too.
+RUN printf "session.upload_progress.enabled = Off\nfatal_error_backtraces = Off\n" > /usr/local/etc/php/conf.d/zz-security.ini
 
 RUN set -eux; \
     apt update; \

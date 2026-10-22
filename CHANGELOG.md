@@ -3,7 +3,7 @@
 Alle noemenswaardige wijzigingen per release. Consumers pinnen `^0.8`; elke tag bereikt
 alle consumers bij hun eerstvolgende `composer update`.
 
-## [Unreleased]
+## [0.9.0] - 2026-10-22
 
 - **Nieuwe module FeatureFlag: flags uit master data, een schakelaar per doelgroep.** Een project zet delen van de
   applicatie per doelgroep aan of uit, per omgeving (`docs/feature-flags.md`).

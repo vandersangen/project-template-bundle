@@ -16,6 +16,7 @@ A reusable Symfony bundle providing authentication, user management, and master 
 - **Queue (Messenger)**: Async message handling, `QueueJobLog` for monitoring, failed jobs in a separate transport
 - **SuperAdmin**: Eigen login en gebruikers; alleen SuperAdmin-users hebben toegang. Zie [docs/super-admin.md](docs/super-admin.md)
 - **Cron**: Scheduler command; cron-beheer (API en web UI) zit in de SuperAdmin-module. Zie [docs/cron-module.md](docs/cron-module.md)
+- **FeatureFlag**: Flags uit master data, per doelgroep aan/uit, met resolver, cache, `#[RequiresFeatureFlag]` en endpoints. Zie [docs/feature-flags.md](docs/feature-flags.md)
 - **Fully Tested**: 35 tests with 96 assertions (100% passing)
 
 ## Installation

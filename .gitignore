@@ -18,3 +18,7 @@
 # Build artifacts
 /coverage.xml
 /composer.lock
+
+# PHPstorm and claude folders
+.idea/
+.claude/

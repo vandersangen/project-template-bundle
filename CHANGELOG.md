@@ -3,8 +3,44 @@
 Alle noemenswaardige wijzigingen per release. Consumers pinnen `^0.8`; elke tag bereikt
 alle consumers bij hun eerstvolgende `composer update`.
 
-## [Unreleased]
+## [0.9.0] - 2026-10-22
 
+- **Nieuwe module FeatureFlag: flags uit master data, een schakelaar per doelgroep.** Een project zet delen van de
+  applicatie per doelgroep aan of uit, per omgeving (`docs/feature-flags.md`).
+  - De flags zijn de entity `FeatureFlag` (tabel `feature_flags`: `cid`, `name`, `description`) en komen uit master data
+    (`bundle:master-data:load`). Of een flag aan staat per doelgroep staat in `feature_flag_audiences` (flag,
+    doelgroep-key, `is_on`, `updated_at`, `updated_by`); alleen `FeatureFlagService::switchFlag()` schrijft daarin.
+    Geen regel is uit; een onbekende flag of doelgroep is uit.
+  - De doelgroepen staan in `project_template.feature_flags.audiences` (key: begint met een letter, hoogstens 20 tekens
+    `a-z0-9_`; `label` verplicht; hoogstens één `guest: true`). Een foute config laat het bouwen van de container falen.
+  - Een resolver van het project (`FeatureFlagAudienceResolverInterface`) zegt bij welke doelgroepen een ingelogde
+    gebruiker hoort; een bezoeker zonder login krijgt de gastdoelgroep. De resolver is verplicht zodra er doelgroepen
+    zijn (`RequireFeatureFlagAudienceResolverPass`).
+  - `FeatureFlagService`: `isOn($cid)`, `isOnFor($cid, $audience)` (cron en queue), `listCidsOn()`, `switchFlag()`. Bij
+    meer doelgroepen staat een flag aan zodra hij voor één ervan aan staat. `#[RequiresFeatureFlag('cid')]` geeft 404
+    zolang de flag uit staat, vóór `#[IsGranted]`.
+  - Endpoints: `GET /api/feature-flags` (ook voor gasten; het project opent het pad), `GET
+    /api/super-admin/feature-flags` en `PUT /api/super-admin/feature-flags/{cid}/audiences/{audience}` met
+    `{"on": bool}`. Het project beschermt `GET /api/feature-flags` zelf; de superbeheer-routes vragen `ROLE_SUPER_ADMIN`.
+  - Alle standen zijn één item in `cache.app` (`project_template_feature_flag_states`), die pas na het vastleggen van
+    een wijziging wordt gewist. Een omzetting binnen de eigen buitenste transactie van het project wist de gedeelde
+    cache bij de eerstvolgende flush buiten een transactie, uiterlijk als het request, commando of bericht eindigt
+    (terminate, worker-events, reset); een langlopend commando ziet tot dan de oude standen (of tot het vangnet van een
+    uur), en een gelijktijdige herlaadactie kan zelden de oude stand opnieuw opslaan. In een cron of handler telt `isOn`
+    als gast: gebruik daar `isOnFor`. Gelijktijdig omzetten reserveert de rij met `INSERT ... ON DUPLICATE KEY UPDATE
+    id = id`, zonder deadlock. De superbeheer-routes vragen een eigen stateless firewall op `^/api/super-admin` (zie
+    docs).
+  - **Let op, migratie:** `Version20261019120000` maakt `feature_flags` en `feature_flag_audiences` aan in de database
+    van elke consumer. Een eigen tabel met een van die namen moet weg zijn vóór deze migratie draait, en een migratie van het project kan dat niet doen: de migraties van de bundle draaien alfabetisch eerder dan die van het project. Alleen lokaal: verwijder eigen migratie en entity in dezelfde commit als de bundle-update, drop de tabel met de hand (`dbal:run-sql`) en verwijder de rij uit `doctrine_migration_versions`. In een gedeelde omgeving: hernoem of verwijder de tabel daar met de hand vóór het uitrollen (standen zo nodig met de hand overzetten). Zie docs.
+  - **Zonder config** komen er twee lege tabellen bij en geeft elke controle `false`. `GET /api/feature-flags` geeft
+    `{"featureFlags": []}`, de superbeheer-lijst de flags uit master data zonder doelgroepen en een `PUT` 404. Een
+    resolver is dan niet nodig.
+  - **Eis bij gebruik:** één gedeelde `cache.app` (bijvoorbeeld Redis) voor alle api- en worker-processen; de standen
+    verlopen als vangnet na een uur.
+- **Master data: `cid` opslaan en als terugvaloptie zoeken.** `MasterDataHydrator` slaat de `cid` op wanneer de entity
+  `setCid()` heeft. Een bestaande entity wordt eerst gezocht op de opgegeven `uniqueFields`, zoals voorheen; vindt dat
+  niets (of zijn er geen), dan wordt op `cid` alleen gezocht als het item een `cid` heeft en de entity een `cid`-veld.
+  De gevonden regel krijgt de `cid` opgeslagen. Entities zonder `cid`-veld veranderen niet.
 - **Cron-uitvoer live in `queue_job_logs`.** `RunCronMessageHandler` gooide de uitvoer van het commando weg (alleen
   bij een fout kwam de error-output in de exception); `stdout` bleef daardoor altijd leeg. De uitvoer (stdout en
   stderr, zoals ze kwamen) gaat nu ongeveer elke seconde naar de eigen log-regel van het bericht, ook als het

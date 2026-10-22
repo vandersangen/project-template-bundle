@@ -17,6 +17,11 @@ security:
             entity:
                 class: VanDerSangen\ProjectTemplateBundle\SuperAdmin\Entity\SuperAdminUser
                 property: username
+        # Test only: the stateless super-admin API accepts a super admin and a plain user,
+        # so a plain user is refused by the controller (403), not by the firewall.
+        test_api_user_provider:
+            chain:
+                providers: [super_admin_provider, app_user_provider]
 
     firewalls:
         dev:
@@ -26,6 +31,21 @@ security:
         public:
             pattern: ^/(api/health|api/auth/(login|register|forgot-password|reset-password|2fa/verify)|api/payment/webhook)
             security: false
+
+        super_admin_api:
+            pattern: ^/api/super-admin
+            stateless: true
+            provider: test_api_user_provider
+            custom_authenticators:
+                - VanDerSangen\ProjectTemplateBundle\Tests\App\Security\TestApiUserAuthenticator
+
+        # Test only: the routes of #[RequiresFeatureFlag], open to guests and to a user named in X-Test-User.
+        feature_flag_test:
+            pattern: ^/feature-flag-test
+            stateless: true
+            provider: test_api_user_provider
+            custom_authenticators:
+                - VanDerSangen\ProjectTemplateBundle\Tests\App\Security\TestApiUserAuthenticator
 
         api:
             pattern: ^/api
@@ -54,4 +74,6 @@ security:
         - { path: ^/api/payment/webhook, roles: PUBLIC_ACCESS }
         - { path: ^/super-admin/login, roles: PUBLIC_ACCESS }
         - { path: ^/super-admin, roles: ROLE_SUPER_ADMIN }
+        - { path: ^/api/super-admin, roles: IS_AUTHENTICATED }
+        - { path: ^/api/feature-flags$, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: ROLE_USER }

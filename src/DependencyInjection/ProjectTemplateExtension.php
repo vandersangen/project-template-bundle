@@ -70,6 +70,10 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
             $config['queue']['max_cron_output_bytes'],
         );
 
+        // Feature flags: the audiences a flag can be switched for, by key in config order; empty when the project
+        // configures none. Configuration checks them, so a wrong key fails the container build, not a request.
+        $container->setParameter('project_template.feature_flags.audiences', $config['feature_flags']['audiences']);
+
         // Two-factor authentication
         $container->setParameter('project_template.two_factor.issuer', $config['two_factor']['issuer']);
 
@@ -147,6 +151,13 @@ class ProjectTemplateExtension extends Extension implements PrependExtensionInte
                         'dir' => $bundleDir . '/Shopify/Entity',
                         'prefix' => 'VanDerSangen\\ProjectTemplateBundle\\Shopify\\Entity',
                         'alias' => 'ProjectTemplateBundleShopify',
+                    ],
+                    'ProjectTemplateBundleFeatureFlag' => [
+                        'type' => 'attribute',
+                        'is_bundle' => false,
+                        'dir' => $bundleDir . '/FeatureFlag/Entity',
+                        'prefix' => 'VanDerSangen\\ProjectTemplateBundle\\FeatureFlag\\Entity',
+                        'alias' => 'ProjectTemplateBundleFeatureFlag',
                     ],
                 ],
             ],

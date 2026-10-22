@@ -46,3 +46,9 @@ shopify_controllers:
         path: ../src/Shopify/Controller/
         namespace: VanDerSangen\ProjectTemplateBundle\Shopify\Controller
     type: attribute
+
+feature_flag_controllers:
+    resource:
+        path: ../src/FeatureFlag/Controller/
+        namespace: VanDerSangen\ProjectTemplateBundle\FeatureFlag\Controller
+    type: attribute

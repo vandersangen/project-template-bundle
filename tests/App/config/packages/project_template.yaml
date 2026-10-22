@@ -4,3 +4,8 @@ project_template:
         api_base_url: 'http://payment-api.test'
         api_token: 'test-token'
         webhook_secret: 'test-webhook-secret'
+    feature_flags:
+        audiences:
+            klanten: { label: 'Klanten' }
+            medewerkers: { label: 'Medewerkers' }
+            gasten: { label: 'Niet ingelogd', guest: true }

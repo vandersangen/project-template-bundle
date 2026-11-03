@@ -17,6 +17,11 @@ Invoice (numbering/VAT/PDF), Tenant, SuperAdmin and Shopify modules.
 - Update `CHANGELOG.md` with every release.
 - Consumers deploy from different branches: payment-api from `development`, qonnecthub from `develop`.
 
+**Run the whole test suite locally and see it pass before opening or updating a PR**: `make test` (the full PHPUnit
+suite), not a selection. CI runs here on pull requests and on pushes to `main`/`develop` (`ci.yml`), but the consumers
+(renco, payment-api, qonnecthub, project-template) no longer test a feature branch on push, so a local green suite is
+the agreed check before every PR in all projects. Mention in the PR description that the suite passed locally.
+
 ## Migrations — EXTRA IMPORTANT here
 
 Bundle migrations run in **every consumer's database** (registered automatically via

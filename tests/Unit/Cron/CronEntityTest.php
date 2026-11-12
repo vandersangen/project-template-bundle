@@ -83,6 +83,20 @@ class CronEntityTest extends TestCase
         $this->assertSame($at, $this->cron->getNextRunAt());
     }
 
+    public function testSetNextRunAtKeepsItInTheDefaultTimezone(): void
+    {
+        $defaultTimezone = date_default_timezone_get();
+        date_default_timezone_set('UTC');
+
+        try {
+            $amsterdam = new \DateTimeZone('Europe/Amsterdam');
+            $this->cron->setNextRunAt(new DateTimeImmutable('2025-06-15 09:00:00', $amsterdam));
+            $this->assertSame('2025-06-15 07:00:00 UTC', $this->cron->getNextRunAt()->format('Y-m-d H:i:s e'));
+        } finally {
+            date_default_timezone_set($defaultTimezone);
+        }
+    }
+
     public function testNextRunAtDefaultIsNull(): void
     {
         $this->assertNull($this->cron->getNextRunAt());

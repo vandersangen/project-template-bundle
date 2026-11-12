@@ -19,6 +19,10 @@ class CronScheduleResolver
         $fromDateTime->setTimezone(new DateTimeZone($timezone));
         $next = $cronExpression->getNextRunDate($fromDateTime, 0, false);
 
-        return \DateTimeImmutable::createFromMutable($next);
+        // Worked out in the timezone of the cron, so "0 3 * * *" stays 03:00 there across daylight saving time. Handed
+        // back in the default timezone: Doctrine stores next_run_at as a wall-clock time without a zone, and
+        // CronRepository::findDue() compares it with "now" in the default timezone.
+        return \DateTimeImmutable::createFromMutable($next)
+            ->setTimezone(new DateTimeZone(date_default_timezone_get()));
     }
 }

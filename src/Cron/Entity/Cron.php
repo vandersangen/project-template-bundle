@@ -6,6 +6,7 @@ namespace VanDerSangen\ProjectTemplateBundle\Cron\Entity;
 
 use VanDerSangen\ProjectTemplateBundle\Cron\Repository\CronRepository;
 use DateTimeImmutable;
+use DateTimeZone;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: CronRepository::class)]
@@ -117,8 +118,22 @@ class Cron
         return $this->nextRunAt;
     }
 
+    /**
+     * Kept in the default timezone: Doctrine stores it as a wall-clock time without a zone, and
+     * CronRepository::findDue() compares it with "now" in the default timezone.
+     *
+     * @param DateTimeImmutable|null $nextRunAt The next run, in any timezone.
+     *
+     * @return static
+     */
     public function setNextRunAt(?DateTimeImmutable $nextRunAt): static
     {
+        $defaultTimezone = date_default_timezone_get();
+
+        if ($nextRunAt !== null && $nextRunAt->getTimezone()->getName() !== $defaultTimezone) {
+            $nextRunAt = $nextRunAt->setTimezone(new DateTimeZone($defaultTimezone));
+        }
+
         $this->nextRunAt = $nextRunAt;
         return $this;
     }

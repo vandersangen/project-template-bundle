@@ -3,6 +3,15 @@
 Alle noemenswaardige wijzigingen per release. Consumers pinnen `^0.8`; elke tag bereikt
 alle consumers bij hun eerstvolgende `composer update`.
 
+## [Unreleased]
+
+- **Cron: een cron in een andere tijdzone dan UTC draait weer op tijd.** `CronScheduleResolver::getNextRunAt()` gaf de
+  volgende run terug in de tijdzone van de cron. Doctrine slaat `crons.next_run_at` op als kloktijd zonder zone, en
+  `CronRepository::findDue()` vergelijkt die met nu in de standaardtijdzone van PHP. Een cron in `Europe/Amsterdam` liep
+  daardoor 1 uur (winter) of 2 uur (zomer) achter; `*/5 * * * *` draaide ongeveer eens per uur. De berekening blijft in
+  de tijdzone van de cron (`0 3 * * *` blijft over de zomertijd heen 03:00 daar); het resultaat komt terug in de
+  standaardtijdzone. Een `next_run_at` die al is opgeslagen blijft staan tot de eerstvolgende run; daarna klopt hij.
+
 ## [0.9.0] - 2026-10-22
 
 - **Nieuwe module FeatureFlag: flags uit master data, een schakelaar per doelgroep.** Een project zet delen van de
